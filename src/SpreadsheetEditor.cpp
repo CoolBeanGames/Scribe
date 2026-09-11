@@ -1,4 +1,7 @@
 #include "SpreadsheetEditor.h"
+#include <QLineEdit>
+#include <QHeaderView>
+#include <QKeyEvent>
 #include <QVBoxLayout>
 #include <QHeaderView>
 #include <QKeyEvent>
@@ -62,6 +65,10 @@ protected:
 SpreadsheetEditor::SpreadsheetEditor(QWidget* parent)
     : QWidget(parent)
 {
+    m_formulaBar = new QLineEdit(this);
+    m_formulaBar->setPlaceholderText("Formula (press = to start)");
+    m_formulaBar->hide();
+
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
@@ -89,7 +96,12 @@ SpreadsheetEditor::SpreadsheetEditor(QWidget* parent)
         QAbstractItemView::EditKeyPressed |
         QAbstractItemView::AnyKeyPressed);
 
+    layout->addWidget(m_formulaBar);
     layout->addWidget(m_table);
+
+    m_table->installEventFilter(this);
+    m_formulaBar->installEventFilter(this);
+    connect(m_table, &QTableWidget::itemSelectionChanged, this, &SpreadsheetEditor::onSelectionChanged);
 
     connect(m_table, &QTableWidget::cellChanged, this, &SpreadsheetEditor::onCellChanged);
 }
@@ -339,3 +351,105 @@ void SpreadsheetEditor::onCellChanged()
     }
 }
 
+
+
+bool SpreadsheetEditor::eventFilter(QObject* obj, QEvent* event) {
+    if (event->type() == QEvent::KeyPress) {
+        QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+        if (!m_inFormulaMode && keyEvent->key() == Qt::Key_Equal && obj == m_table) {
+            enterFormulaMode();
+            return true;
+        } else if (m_inFormulaMode && (keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter)) {
+            exitFormulaMode(true);
+            return true;
+        } else if (m_inFormulaMode && keyEvent->key() == Qt::Key_Escape) {
+            exitFormulaMode(false);
+            return true;
+        }
+    }
+    return QWidget::eventFilter(obj, event);
+}
+
+void SpreadsheetEditor::enterFormulaMode() {
+    m_inFormulaMode = true;
+    m_formulaRow = m_table->currentRow();
+    m_formulaCol = m_table->currentColumn();
+    m_formulaBar->show();
+    m_formulaBar->setText("=");
+    m_formulaBar->setFocus();
+}
+
+void SpreadsheetEditor::exitFormulaMode(bool apply) {
+    if (apply && m_formulaRow >= 0 && m_formulaCol >= 0) {
+        QTableWidgetItem* item = m_table->item(m_formulaRow, m_formulaCol);
+        if (!item) {
+            item = new QTableWidgetItem();
+            m_table->setItem(m_formulaRow, m_formulaCol, item);
+        }
+        double val = evaluateExpression(m_formulaBar->text());
+        item->setText(QString::number(val));
+        setModified(true);
+    }
+    m_inFormulaMode = false;
+    m_formulaBar->hide();
+    m_table->setFocus();
+}
+
+double SpreadsheetEditor::evaluateExpression(const QString& expr) const {
+    if (!expr.startsWith("=")) return 0;
+    QString exp = expr.mid(1);
+    
+    if (exp.contains("+")) {
+        QStringList parts = exp.split("+");
+        return evaluateExpression("=" + parts[0]) + evaluateExpression("=" + parts[1]);
+    }
+    if (exp.contains("-")) {
+        QStringList parts = exp.split("-");
+        return evaluateExpression("=" + parts[0]) - evaluateExpression("=" + parts[1]);
+    }
+    if (exp.contains("*")) {
+        QStringList parts = exp.split("*");
+        return evaluateExpression("=" + parts[0]) * evaluateExpression("=" + parts[1]);
+    }
+    if (exp.contains("/")) {
+        QStringList parts = exp.split("/");
+        double denom = evaluateExpression("=" + parts[1]);
+        return denom == 0 ? 0 : evaluateExpression("=" + parts[0]) / denom;
+    }
+    
+    bool ok;
+    double val = exp.toDouble(&ok);
+    if (ok) return val;
+
+    for (int r = 0; r < m_table->rowCount(); ++r) {
+        for (int c = 0; c < m_table->columnCount(); ++c) {
+            if (getCellName(r, c) == exp) {
+                QTableWidgetItem* item = m_table->item(r, c);
+                if (item) return item->text().toDouble();
+                return 0;
+            }
+        }
+    }
+    return 0;
+}
+
+QString SpreadsheetEditor::getCellName(int r, int c) const {
+    QString header;
+    int n = c;
+    do {
+        header.prepend(QChar('A' + (n % 26)));
+        n = n / 26 - 1;
+    } while (n >= 0);
+    return header + QString::number(r + 1);
+}
+
+void SpreadsheetEditor::onSelectionChanged() {
+    if (m_inFormulaMode) {
+        auto items = m_table->selectedItems();
+        if (!items.isEmpty()) {
+            auto* item = items.first();
+            QString cellName = getCellName(item->row(), item->column());
+            m_formulaBar->setText(m_formulaBar->text() + cellName);
+        }
+    }
+}
