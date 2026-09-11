@@ -187,9 +187,28 @@ void PlainTextEditor::onDocumentModified()
 
 
 void PlainTextEditor::onCustomContextMenu(const QPoint& pos) {
-    QMenu* menu = createStandardContextMenu();
-    buildContextMenu(menu);
-    menu->exec(mapToGlobal(pos));
-    delete menu;
+    QMenu menu(this);
+    bool hasSel = textCursor().hasSelection();
+    
+    if (hasSel) {
+        QAction* cutAct = menu.addAction("Cut");
+        connect(cutAct, &QAction::triggered, this, &QPlainTextEdit::cut);
+        
+        QAction* copyAct = menu.addAction("Copy");
+        connect(copyAct, &QAction::triggered, this, &QPlainTextEdit::copy);
+    }
+    
+    QAction* pasteAct = menu.addAction("Paste");
+    connect(pasteAct, &QAction::triggered, this, &QPlainTextEdit::paste);
+    
+    if (hasSel) {
+        QAction* deleteAct = menu.addAction("Delete");
+        connect(deleteAct, &QAction::triggered, this, [this]() {
+            textCursor().removeSelectedText();
+        });
+    }
+    
+    menu.exec(mapToGlobal(pos));
 }
+
 
