@@ -1,3 +1,4 @@
+#include <QProcess>
 #include "MainWindow.h"
 #include "FlowLayout.h"
 #include <QVBoxLayout>
@@ -392,7 +393,39 @@ void MainWindow::newCodeEditor()
 
 void MainWindow::runCurrentCode()
 {
-    QMessageBox::information(this, "Run Code", "Python execution is mocked for now.");
+    auto* code = currentEditor();
+    if (!code || code->documentType() != DocumentType::Code) {
+        QMessageBox::warning(this, "Run Code", "Active tab is not a Code Editor.");
+        return;
+    }
+    
+    QString path = code->filePath();
+    if (path.isEmpty()) {
+        QMessageBox::warning(this, "Run Code", "Please save the file before running.");
+        return;
+    }
+
+    QProcess* process = new QProcess(this);
+    process->setProgram("python");
+    process->setArguments({path});
+    
+    connect(process, &QProcess::readyReadStandardOutput, this, [this, process]() {
+        QString output = process->readAllStandardOutput();
+        // just print or show message
+    });
+    
+    process->start();
+    if (!process->waitForStarted()) {
+        QMessageBox::critical(this, "Run Error", "Failed to start Python interpreter.");
+    } else {
+        process->waitForFinished();
+        QString output = process->readAllStandardOutput();
+        QString err = process->readAllStandardError();
+        QString result = output;
+        if (!err.isEmpty()) result += "\nErrors:\n" + err;
+        QMessageBox::information(this, "Script Output", result.isEmpty() ? "Script finished with no output." : result);
+    }
+    process->deleteLater();
 }
 
 // ---------------------------------------------------------------------------
@@ -902,6 +935,8 @@ void MainWindow::closeEvent(QCloseEvent* event)
     }
     event->accept();
 }
+
+
 
 
 
