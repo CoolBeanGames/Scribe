@@ -13,6 +13,7 @@
 #include <QTextDocument>
 #include <QTextCharFormat>
 #include <QTextBlockFormat>
+#include <QTextList>
 #include <QFont>
 #include <QColor>
 #include <QImageReader>
@@ -182,7 +183,19 @@ bool RichTextEditor::eventFilter(QObject* obj, QEvent* event)
 {
     if (obj == m_editor && event->type() == QEvent::KeyPress) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
-        if (keyEvent->key() == Qt::Key_Space) {
+        if (keyEvent->key() == Qt::Key_Tab) {
+            QTextCursor cursor = m_editor->textCursor();
+            if (cursor.currentList()) {
+                indentList();
+                return true;
+            }
+        } else if (keyEvent->key() == Qt::Key_Backtab) {
+            QTextCursor cursor = m_editor->textCursor();
+            if (cursor.currentList()) {
+                unindentList();
+                return true;
+            }
+        } else if (keyEvent->key() == Qt::Key_Space) {
             QTextCursor cursor = m_editor->textCursor();
             QTextCursor lineCursor = cursor;
             lineCursor.movePosition(QTextCursor::StartOfBlock, QTextCursor::KeepAnchor);
@@ -191,6 +204,13 @@ bool RichTextEditor::eventFilter(QObject* obj, QEvent* event)
                 lineCursor.removeSelectedText();
                 QTextListFormat listFormat;
                 listFormat.setStyle(QTextListFormat::ListDisc);
+                listFormat.setIndent(1);
+                cursor.createList(listFormat);
+                return true;
+            } else if (text == "1." || text == "1)") {
+                lineCursor.removeSelectedText();
+                QTextListFormat listFormat;
+                listFormat.setStyle(QTextListFormat::ListDecimal);
                 listFormat.setIndent(1);
                 cursor.createList(listFormat);
                 return true;
@@ -204,6 +224,7 @@ bool RichTextEditor::eventFilter(QObject* obj, QEvent* event)
                 if (text.isEmpty()) {
                     QTextBlockFormat blockFormat = cursor.blockFormat();
                     blockFormat.setObjectIndex(-1);
+                    blockFormat.setIndent(0);
                     cursor.setBlockFormat(blockFormat);
                     cursor.movePosition(QTextCursor::StartOfBlock);
                     cursor.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
@@ -389,19 +410,99 @@ void RichTextEditor::onCustomContextMenu(const QPoint& pos) {
 }
 
 
-void RichTextEditor::toggleList()
+void RichTextEditor::toggleBulletList()
 {
     QTextCursor cursor = m_editor->textCursor();
     QTextList* list = cursor.currentList();
     if (list) {
-        QTextBlockFormat bfmt = cursor.blockFormat();
-        bfmt.setObjectIndex(-1);
-        cursor.setBlockFormat(bfmt);
+        if (list->format().style() == QTextListFormat::ListDisc) {
+            // Remove from list
+            QTextBlockFormat bfmt = cursor.blockFormat();
+            bfmt.setObjectIndex(-1);
+            bfmt.setIndent(0);
+            cursor.setBlockFormat(bfmt);
+        } else {
+            // Switch style to bullet
+            QTextListFormat listFmt = list->format();
+            listFmt.setStyle(QTextListFormat::ListDisc);
+            list->setFormat(listFmt);
+        }
     } else {
         QTextListFormat listFmt;
         listFmt.setStyle(QTextListFormat::ListDisc);
+        listFmt.setIndent(1);
         cursor.createList(listFmt);
     }
+}
+
+void RichTextEditor::toggleNumberedList()
+{
+    QTextCursor cursor = m_editor->textCursor();
+    QTextList* list = cursor.currentList();
+    if (list) {
+        if (list->format().style() == QTextListFormat::ListDecimal) {
+            // Remove from list
+            QTextBlockFormat bfmt = cursor.blockFormat();
+            bfmt.setObjectIndex(-1);
+            bfmt.setIndent(0);
+            cursor.setBlockFormat(bfmt);
+        } else {
+            // Switch style to numbered
+            QTextListFormat listFmt = list->format();
+            listFmt.setStyle(QTextListFormat::ListDecimal);
+            list->setFormat(listFmt);
+        }
+    } else {
+        QTextListFormat listFmt;
+        listFmt.setStyle(QTextListFormat::ListDecimal);
+        listFmt.setIndent(1);
+        cursor.createList(listFmt);
+    }
+}
+
+void RichTextEditor::indentList()
+{
+    QTextCursor cursor = m_editor->textCursor();
+    QTextList* list = cursor.currentList();
+    if (list) {
+        QTextListFormat listFmt = list->format();
+        listFmt.setIndent(listFmt.indent() + 1);
+        cursor.createList(listFmt);
+    } else {
+        QTextBlockFormat bfmt = cursor.blockFormat();
+        bfmt.setIndent(bfmt.indent() + 1);
+        cursor.setBlockFormat(bfmt);
+    }
+}
+
+void RichTextEditor::unindentList()
+{
+    QTextCursor cursor = m_editor->textCursor();
+    QTextList* list = cursor.currentList();
+    if (list) {
+        QTextListFormat listFmt = list->format();
+        if (listFmt.indent() > 1) {
+            listFmt.setIndent(listFmt.indent() - 1);
+            cursor.createList(listFmt);
+        } else {
+            // Remove from list completely
+            QTextBlockFormat bfmt = cursor.blockFormat();
+            bfmt.setObjectIndex(-1);
+            bfmt.setIndent(0);
+            cursor.setBlockFormat(bfmt);
+        }
+    } else {
+        QTextBlockFormat bfmt = cursor.blockFormat();
+        if (bfmt.indent() > 0) {
+            bfmt.setIndent(bfmt.indent() - 1);
+            cursor.setBlockFormat(bfmt);
+        }
+    }
+}
+
+void RichTextEditor::toggleList()
+{
+    toggleBulletList();
 }
 
 

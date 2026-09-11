@@ -41,7 +41,11 @@ public:
     void insertTable(int rows, int cols);
     void insertImage(const QString& imagePath);
     void insertHyperlink(const QString& url, const QString& text);
-    void toggleList();
+    void toggleBulletList();
+    void toggleNumberedList();
+    void indentList();
+    void unindentList();
+    void toggleList(); // backwards compatibility alias for bullet list
     void buildContextMenu(QMenu* menu) override;
 
     // Query current char format

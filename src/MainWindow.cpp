@@ -201,9 +201,10 @@ void MainWindow::setupFormatToolbar()
     m_actBold->setCheckable(true);
     m_actItalic->setCheckable(true);
     m_actUnderline->setCheckable(true);
-    m_actList = m_formatToolbar->addAction(" List");
-    m_actList->setCheckable(true);
-    m_actList->setToolTip("Toggle Bullet List");
+    m_actBulletList = m_formatToolbar->addAction("• List");
+    m_actBulletList->setToolTip("Bullet List");
+    m_actNumberedList = m_formatToolbar->addAction("1. List");
+    m_actNumberedList->setToolTip("Numbered List");
     m_actBold->setToolTip("Bold (Ctrl+B)");
     m_actItalic->setToolTip("Italic (Ctrl+I)");
     m_actUnderline->setToolTip("Underline (Ctrl+U)");
@@ -277,7 +278,8 @@ void MainWindow::setupFormatToolbar()
     connect(m_actBold,      &QAction::toggled, this, &MainWindow::onBoldToggled);
     connect(m_actItalic,    &QAction::toggled, this, &MainWindow::onItalicToggled);
     connect(m_actUnderline, &QAction::toggled, this, &MainWindow::onUnderlineToggled);
-    connect(m_actList, &QAction::triggered, this, [this](bool) { if(auto* r = currentRichEditor()) r->toggleList(); });
+    connect(m_actBulletList, &QAction::triggered, this, [this](bool) { if(auto* r = currentRichEditor()) r->toggleBulletList(); });
+    connect(m_actNumberedList, &QAction::triggered, this, [this](bool) { if(auto* r = currentRichEditor()) r->toggleNumberedList(); });
     connect(m_actFontColor, &QAction::triggered, this, &MainWindow::onFontColor);
     connect(m_actAlignLeft,   &QAction::triggered, this, &MainWindow::onAlignLeft);
     connect(m_actAlignCenter, &QAction::triggered, this, &MainWindow::onAlignCenter);

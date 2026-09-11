@@ -55,7 +55,8 @@ private:
     QAction*       m_actBold       = nullptr;
     QAction*       m_actItalic     = nullptr;
     QAction* m_actUnderline = nullptr;
-    QAction* m_actList = nullptr;
+    QAction* m_actBulletList = nullptr;
+    QAction* m_actNumberedList = nullptr;
     QAction*       m_actAlignLeft  = nullptr;
     QAction*       m_actAlignCenter= nullptr;
     QAction*       m_actAlignRight = nullptr;
