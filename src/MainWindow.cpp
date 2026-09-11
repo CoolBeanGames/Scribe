@@ -63,6 +63,9 @@ void MainWindow::setupMenuBar()
     QMenu* textMenu = newMenu->addMenu("Text");
     m_actNewTxt = textMenu->addAction(".txt");
     m_actNewMd = textMenu->addAction(".md");
+
+    QMenu* codeMenu = newMenu->addMenu("Code");
+    m_actNewPy = codeMenu->addAction(".py");
     
     QMenu* richTextMenu = newMenu->addMenu("Rich Text");
     m_actNewDocx = richTextMenu->addAction(".docx");
@@ -96,6 +99,7 @@ void MainWindow::setupMenuBar()
     // ── Connect actions ───────────────────────────────────────────────────
     connect(m_actNewTxt, &QAction::triggered, this, &MainWindow::newPlainText);
     connect(m_actNewMd, &QAction::triggered, this, &MainWindow::newPlainText);
+    connect(m_actNewPy, &QAction::triggered, this, &MainWindow::newCodeEditor);
     connect(m_actNewDocx, &QAction::triggered, this, &MainWindow::newRichText);
     connect(m_actNewWord, &QAction::triggered, this, &MainWindow::newRichText);
     connect(m_actNewExcel, &QAction::triggered, this, &MainWindow::newSpreadsheet);
@@ -113,6 +117,10 @@ void MainWindow::setupMenuBar()
 // ---------------------------------------------------------------------------
 void MainWindow::setupMainToolbar()
 {
+    m_actRunCode = new QAction("? Run", this);
+    m_actRunCode->setToolTip("Run Code");
+    connect(m_actRunCode, &QAction::triggered, this, &MainWindow::runCurrentCode);
+    m_mainToolbar->addAction(m_actRunCode);
     m_mainToolbar = addToolBar("Main");
     m_mainToolbar->setMovable(false);
     m_mainToolbar->setObjectName("MainToolBar");
@@ -349,6 +357,18 @@ void MainWindow::newSpreadsheet()
     updateWindowTitle(editor);
 }
 
+void MainWindow::newCodeEditor()
+{
+    auto* editor = new CodeEditor(this);
+    m_tabWidget->addEditor(editor);
+    updateWindowTitle(editor);
+}
+
+void MainWindow::runCurrentCode()
+{
+    QMessageBox::information(this, "Run Code", "Python execution is mocked for now.");
+}
+
 // ---------------------------------------------------------------------------
 // File operations
 // ---------------------------------------------------------------------------
@@ -475,6 +495,7 @@ void MainWindow::closeEditor(EditorBase* editor)
 void MainWindow::updateToolbarsForEditor(EditorBase* editor)
 {
     if (!editor) {
+        m_actRunCode->setVisible(false);
         m_formatToolbar->setVisible(false);
         m_sheetToolbar->setVisible(false);
         m_actSave->setEnabled(false);
@@ -489,9 +510,12 @@ void MainWindow::updateToolbarsForEditor(EditorBase* editor)
 
     bool isRich  = (editor->documentType() == DocumentType::RichText);
     bool isSheet = (editor->documentType() == DocumentType::Spreadsheet);
+    bool isCode = (editor->documentType() == DocumentType::Code);
 
     m_formatToolbar->setVisible(isRich);
     m_sheetToolbar->setVisible(isSheet);
+    m_actRunCode->setVisible(isCode);
+    m_actRunCode->setVisible(isCode);
 
     // Undo/redo only for text editors
     m_actUndo->setEnabled(!isSheet);
@@ -505,6 +529,7 @@ void MainWindow::updateToolbarsForEditor(EditorBase* editor)
 void MainWindow::updateWindowTitle(EditorBase* editor)
 {
     if (!editor) {
+        m_actRunCode->setVisible(false);
         setWindowTitle("Scribe");
         return;
     }
@@ -516,6 +541,7 @@ void MainWindow::updateWindowTitle(EditorBase* editor)
 void MainWindow::updateStatusBar(EditorBase* editor)
 {
     if (!editor) {
+        m_actRunCode->setVisible(false);
         m_statusBar->clearMessage();
         return;
     }
@@ -828,5 +854,8 @@ void MainWindow::closeEvent(QCloseEvent* event)
     }
     event->accept();
 }
+
+
+
 
 

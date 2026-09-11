@@ -13,6 +13,7 @@
 #include "PlainTextEditor.h"
 #include "RichTextEditor.h"
 #include "SpreadsheetEditor.h"
+#include "CodeEditor.h"
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -34,6 +35,8 @@ private:
     // Menu actions
     QAction* m_actNewTxt = nullptr;
     QAction* m_actNewMd = nullptr;
+    QAction* m_actNewPy = nullptr;
+    QAction* m_actRunCode = nullptr;
     QAction* m_actNewDocx = nullptr;
     QAction* m_actNewWord = nullptr;
     QAction* m_actNewExcel = nullptr;
@@ -79,6 +82,8 @@ private:
     void newPlainText();
     public: void newRichText(); private:
     void newSpreadsheet();
+    void newCodeEditor();
+    void runCurrentCode();
     void openFile();
     void saveCurrentFile();
     void saveCurrentFileAs();
@@ -127,4 +132,6 @@ private slots:
     void onUndoAction();
     void onRedoAction();
 };
+
+
 

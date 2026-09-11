@@ -31,6 +31,12 @@ set(SOURCES
     src/RichTextEditor.h
     src/SpreadsheetEditor.cpp
     src/SpreadsheetEditor.h
+    src/CodeEditor.cpp
+    src/CodeEditor.h
+    src/CodeEditorWidget.cpp
+    src/CodeEditorWidget.h
+    src/PythonHighlighter.cpp
+    src/PythonHighlighter.h
     src/TabWidget.cpp
     src/TabWidget.h
     src/EditorBase.h
@@ -54,3 +60,4 @@ if(WIN32)
 endif()
 
 # Post-build: deploy Qt DLLs (optional, run windeployqt manually if needed)
+

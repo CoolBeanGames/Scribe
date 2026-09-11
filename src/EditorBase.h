@@ -6,7 +6,7 @@
 enum class DocumentType {
     PlainText,   // .txt, .md
     RichText,    // .rtf
-    Spreadsheet  // .csv
+    Spreadsheet, Code  // .csv
 };
 
 // Base interface for all editor widgets

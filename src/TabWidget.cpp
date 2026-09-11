@@ -119,3 +119,4 @@ void TabWidget::onCurrentChanged(int index)
     emit editorChanged(editorAt(index));
 }
 
+
