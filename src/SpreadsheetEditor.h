@@ -28,6 +28,10 @@ public:
     void addColumn();
     void deleteRow();
     void deleteColumn();
+    void insertRowAt(int row);
+    void insertColumnAt(int col);
+    void deleteRowAt(int row);
+    void deleteColumnAt(int col);
     void setCellColor(const QColor& color);
 
 signals:

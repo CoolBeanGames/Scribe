@@ -101,8 +101,11 @@ SpreadsheetEditor::SpreadsheetEditor(QWidget* parent)
     layout->addWidget(m_table);
 
     m_table->installEventFilter(this);
+    m_table->viewport()->installEventFilter(this);
     m_table->setContextMenuPolicy(Qt::CustomContextMenu);
+    m_table->viewport()->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_table, &QWidget::customContextMenuRequested, this, &SpreadsheetEditor::onCustomContextMenu);
+    connect(m_table->viewport(), &QWidget::customContextMenuRequested, this, &SpreadsheetEditor::onCustomContextMenu);
     m_formulaBar->installEventFilter(this);
     connect(m_table, &QTableWidget::cellClicked, this, &SpreadsheetEditor::onCellClicked);
 
@@ -218,25 +221,50 @@ QString SpreadsheetEditor::displayName() const
 
 void SpreadsheetEditor::addRow()
 {
-    m_table->setRowCount(m_table->rowCount() + 1);
-    int r = m_table->rowCount() - 1;
-    m_table->setVerticalHeaderItem(r, new QTableWidgetItem(QString::number(r + 1)));
-    setModified(true);
+    insertRowAt(m_table->currentRow() >= 0 ? m_table->currentRow() + 1 : m_table->rowCount());
 }
 
 void SpreadsheetEditor::addColumn()
 {
-    m_table->setColumnCount(m_table->columnCount() + 1);
-    updateColumnHeaders();
-    setModified(true);
+    insertColumnAt(m_table->currentColumn() >= 0 ? m_table->currentColumn() + 1 : m_table->columnCount());
 }
 
 void SpreadsheetEditor::deleteRow()
 {
-    int row = m_table->currentRow();
-    if (row >= 0) {
+    deleteRowAt(m_table->currentRow());
+}
+
+void SpreadsheetEditor::deleteColumn()
+{
+    deleteColumnAt(m_table->currentColumn());
+}
+
+void SpreadsheetEditor::insertRowAt(int row)
+{
+    if (row < 0 || row > m_table->rowCount()) {
+        row = m_table->rowCount();
+    }
+    m_table->insertRow(row);
+    for (int r = 0; r < m_table->rowCount(); ++r) {
+        m_table->setVerticalHeaderItem(r, new QTableWidgetItem(QString::number(r + 1)));
+    }
+    setModified(true);
+}
+
+void SpreadsheetEditor::insertColumnAt(int col)
+{
+    if (col < 0 || col > m_table->columnCount()) {
+        col = m_table->columnCount();
+    }
+    m_table->insertColumn(col);
+    updateColumnHeaders();
+    setModified(true);
+}
+
+void SpreadsheetEditor::deleteRowAt(int row)
+{
+    if (row >= 0 && row < m_table->rowCount()) {
         m_table->removeRow(row);
-        // Refresh row headers
         for (int r = 0; r < m_table->rowCount(); ++r) {
             m_table->setVerticalHeaderItem(r, new QTableWidgetItem(QString::number(r + 1)));
         }
@@ -244,10 +272,9 @@ void SpreadsheetEditor::deleteRow()
     }
 }
 
-void SpreadsheetEditor::deleteColumn()
+void SpreadsheetEditor::deleteColumnAt(int col)
 {
-    int col = m_table->currentColumn();
-    if (col >= 0) {
+    if (col >= 0 && col < m_table->columnCount()) {
         m_table->removeColumn(col);
         updateColumnHeaders();
         setModified(true);
@@ -357,9 +384,24 @@ void SpreadsheetEditor::onCellChanged()
 
 
 bool SpreadsheetEditor::eventFilter(QObject* obj, QEvent* event) {
+    if (obj == m_table->viewport() || obj == m_table) {
+        if (event->type() == QEvent::MouseButtonPress && m_inFormulaMode) {
+            QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
+            QPoint pos = (obj == m_table) ? mouseEvent->position().toPoint() : mouseEvent->position().toPoint();
+            int row = m_table->rowAt(pos.y());
+            int col = m_table->columnAt(pos.x());
+            if (row >= 0 && col >= 0) {
+                QString cellName = getCellName(row, col);
+                m_formulaBar->setText(m_formulaBar->text() + cellName);
+                m_formulaBar->setFocus();
+                return true; // Eat mouse press so table doesn't change selection or start editing
+            }
+        }
+    }
+
     if (event->type() == QEvent::KeyPress) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
-        if (!m_inFormulaMode && keyEvent->key() == Qt::Key_Equal && obj == m_table) {
+        if (!m_inFormulaMode && keyEvent->key() == Qt::Key_Equal && (obj == m_table || obj == m_table->viewport())) {
             enterFormulaMode();
             return true;
         } else if (m_inFormulaMode && (keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter)) {
@@ -456,12 +498,64 @@ void SpreadsheetEditor::onCellClicked(int row, int column) {
 }
 
 void SpreadsheetEditor::onCustomContextMenu(const QPoint& pos) {
+    int clickedRow = m_table->rowAt(pos.y());
+    int clickedCol = m_table->columnAt(pos.x());
+
+    if (clickedRow < 0) clickedRow = m_table->currentRow();
+    if (clickedCol < 0) clickedCol = m_table->currentColumn();
+
     QMenu menu(this);
-    buildContextMenu(&menu);
-    menu.exec(m_table->mapToGlobal(pos));
+
+    if (clickedRow >= 0) {
+        QAction* actInsertRowAbove = menu.addAction(QString("Insert Row Above (Row %1)").arg(clickedRow + 1));
+        connect(actInsertRowAbove, &QAction::triggered, this, [this, clickedRow]() {
+            insertRowAt(clickedRow);
+        });
+
+        QAction* actInsertRowBelow = menu.addAction(QString("Insert Row Below (Row %1)").arg(clickedRow + 2));
+        connect(actInsertRowBelow, &QAction::triggered, this, [this, clickedRow]() {
+            insertRowAt(clickedRow + 1);
+        });
+
+        QAction* actDeleteRow = menu.addAction(QString("Delete Row %1").arg(clickedRow + 1));
+        connect(actDeleteRow, &QAction::triggered, this, [this, clickedRow]() {
+            deleteRowAt(clickedRow);
+        });
+    }
+
+    if (clickedCol >= 0) {
+        if (clickedRow >= 0) menu.addSeparator();
+
+        QString colHeader = getCellName(0, clickedCol);
+        colHeader.chop(1); // remove row number '1' to get column letter(s)
+
+        QAction* actInsertColLeft = menu.addAction(QString("Insert Column Left (%1)").arg(colHeader));
+        connect(actInsertColLeft, &QAction::triggered, this, [this, clickedCol]() {
+            insertColumnAt(clickedCol);
+        });
+
+        QAction* actInsertColRight = menu.addAction(QString("Insert Column Right"));
+        connect(actInsertColRight, &QAction::triggered, this, [this, clickedCol]() {
+            insertColumnAt(clickedCol + 1);
+        });
+
+        QAction* actDeleteCol = menu.addAction(QString("Delete Column %1").arg(colHeader));
+        connect(actDeleteCol, &QAction::triggered, this, [this, clickedCol]() {
+            deleteColumnAt(clickedCol);
+        });
+    }
+
+    menu.addSeparator();
+    QAction* actClear = menu.addAction("Clear Contents");
+    connect(actClear, &QAction::triggered, this, [this]() {
+        for (auto* item : m_table->selectedItems()) {
+            item->setText("");
+        }
+        setModified(true);
+    });
+
+    menu.exec(m_table->viewport()->mapToGlobal(pos));
 }
-
-
 
 void SpreadsheetEditor::buildContextMenu(QMenu* menu)
 {
