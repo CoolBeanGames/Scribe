@@ -709,7 +709,7 @@ void MainWindow::syncFormatToolbar()
     m_actItalic->blockSignals(true);
     m_actUnderline->blockSignals(true);
 
-    m_fontCombo->setCurrentFont(QFont(fmt.fontFamily()));
+    m_fontCombo->setCurrentFont(QFont(fmt.font().family()));
     int pts = static_cast<int>(fmt.fontPointSize());
     if (pts > 0) m_fontSizeSpin->setValue(pts);
     m_actBold->setChecked(fmt.fontWeight() >= QFont::Bold);
