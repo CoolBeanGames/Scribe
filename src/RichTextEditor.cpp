@@ -1,3 +1,4 @@
+#include <QMenu>
 #include "RichTextEditor.h"
 #include <QVBoxLayout>
 #include <QFile>
@@ -32,6 +33,8 @@ RichTextEditor::RichTextEditor(QWidget* parent)
 
     layout->addWidget(m_editor);
     m_editor->installEventFilter(this);
+    m_editor->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_editor, &QWidget::customContextMenuRequested, this, &RichTextEditor::onCustomContextMenu);
 
     // Track modifications
     connect(m_editor->document(), &QTextDocument::modificationChanged,
@@ -374,4 +377,12 @@ void RichTextEditor::onDocumentModified()
     }
 }
 
+
+
+void RichTextEditor::onCustomContextMenu(const QPoint& pos) {
+    QMenu* menu = m_editor->createStandardContextMenu();
+    buildContextMenu(menu);
+    menu->exec(m_editor->mapToGlobal(pos));
+    delete menu;
+}
 

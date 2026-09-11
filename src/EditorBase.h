@@ -1,6 +1,8 @@
 #pragma once
 #include <QWidget>
 #include <QString>
+#include <QMenu>
+#include <QContextMenuEvent>
 
 // Document type enum
 enum class DocumentType {
@@ -49,4 +51,7 @@ public:
     virtual void redo() {}
     virtual bool canUndo() const { return false; }
     virtual bool canRedo() const { return false; }
+
+    virtual void buildContextMenu(QMenu* menu) { (void)menu; }
 };
+

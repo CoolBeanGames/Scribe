@@ -1,3 +1,4 @@
+#include <QMenu>
 #include "CodeEditor.h"
 #include <QFile>
 #include <QTextStream>
@@ -8,6 +9,8 @@ CodeEditor::CodeEditor(QWidget* parent) : QWidget(parent) {
     layout->setContentsMargins(0, 0, 0, 0);
 
     m_editor = new CodeEditorWidget(this);
+    m_editor->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_editor, &QWidget::customContextMenuRequested, this, &CodeEditor::onCustomContextMenu);
     layout->addWidget(m_editor);
 
     connect(m_editor->document(), &QTextDocument::modificationChanged, this, [this](bool m) {
@@ -49,3 +52,11 @@ bool CodeEditor::loadFile(const QString& path) {
     setModified(false);
     return true;
 }
+
+void CodeEditor::onCustomContextMenu(const QPoint& pos) {
+    QMenu* menu = m_editor->createStandardContextMenu();
+    buildContextMenu(menu);
+    menu->exec(m_editor->mapToGlobal(pos));
+    delete menu;
+}
+

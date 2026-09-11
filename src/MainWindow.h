@@ -18,6 +18,7 @@
 class MainWindow : public QMainWindow {
     Q_OBJECT
 public:
+    void openFile(const QString& path);
     explicit MainWindow(QWidget* parent = nullptr);
     ~MainWindow() override = default;
 
@@ -81,11 +82,12 @@ private:
 
     // Editor management
     void newPlainText();
-    public: void newRichText(); private:
+    void newRichText();
     void newSpreadsheet();
     void newCodeEditor();
     void runCurrentCode();
     void openFile();
+    
     void saveCurrentFile();
     void saveCurrentFileAs();
     void closeEditor(EditorBase* editor);
@@ -134,6 +136,10 @@ private slots:
     void onUndoAction();
     void onRedoAction();
 };
+
+
+
+
 
 
 

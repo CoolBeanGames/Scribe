@@ -1,3 +1,4 @@
+#include <QMenu>
 #include "PlainTextEditor.h"
 #include <QKeyEvent>
 #include <QTextCursor>
@@ -182,5 +183,13 @@ void PlainTextEditor::onDocumentModified()
         m_modified = mod;
         emit modificationChanged(mod);
     }
+}
+
+
+void PlainTextEditor::onCustomContextMenu(const QPoint& pos) {
+    QMenu* menu = createStandardContextMenu();
+    buildContextMenu(menu);
+    menu->exec(mapToGlobal(pos));
+    delete menu;
 }
 

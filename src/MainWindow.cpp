@@ -127,7 +127,7 @@ void MainWindow::setupMenuBar()
     connect(m_actNewWord, &QAction::triggered, this, &MainWindow::newRichText);
     connect(m_actNewExcel, &QAction::triggered, this, &MainWindow::newSpreadsheet);
     connect(m_actNewCsv, &QAction::triggered, this, &MainWindow::newSpreadsheet);
-    connect(m_actOpen,   &QAction::triggered, this, &MainWindow::openFile);
+    connect(m_actOpen, &QAction::triggered, this, qOverload<>(&MainWindow::openFile));
     connect(m_actSave,   &QAction::triggered, this, &MainWindow::saveCurrentFile);
     connect(m_actSaveAs, &QAction::triggered, this, &MainWindow::saveCurrentFileAs);
     connect(m_actExit,   &QAction::triggered, this, &QMainWindow::close);
@@ -160,7 +160,7 @@ open->setToolTip("Open file (Ctrl+O)");
     undo->setToolTip("Undo (Ctrl+Z)");
     redo->setToolTip("Redo (Ctrl+Y)");
 
-connect(open,   &QAction::triggered, this, &MainWindow::openFile);
+connect(open, &QAction::triggered, this, qOverload<>(&MainWindow::openFile));
     connect(save,   &QAction::triggered, this, &MainWindow::saveCurrentFile);
     connect(undo,   &QAction::triggered, this, &MainWindow::onUndoAction);
     connect(redo,   &QAction::triggered, this, &MainWindow::onRedoAction);
@@ -401,13 +401,21 @@ void MainWindow::runCurrentCode()
 void MainWindow::openFile()
 {
     QString filter =
-        "All Supported Files (*.txt *.md *.rtf *.csv);;"
+        "All Supported Files (*.txt *.md *.rtf *.csv *.py *.cpp *.h *.js);;"
         "Plain Text (*.txt *.md);;"
         "Rich Text (*.rtf);;"
         "CSV Spreadsheet (*.csv);;"
+        "Code (*.py *.cpp *.h *.js);;"
         "All Files (*)";
 
     QString path = QFileDialog::getOpenFileName(this, "Open File", QString(), filter);
+    if (!path.isEmpty()) {
+        openFile(path);
+    }
+}
+
+void MainWindow::openFile(const QString& path)
+{
     if (path.isEmpty()) return;
 
     QString ext = QFileInfo(path).suffix().toLower();
@@ -423,8 +431,12 @@ void MainWindow::openFile()
         auto* sheet = new SpreadsheetEditor(this);
         if (!sheet->loadFile(path)) { delete sheet; return; }
         editor = sheet;
+    } else if (ext == "py" || ext == "cpp" || ext == "h" || ext == "js") {
+        auto* code = new CodeEditor(this);
+        if (!code->loadFile(path)) { delete code; return; }
+        editor = code;
     } else {
-        // .txt, .md, or unknown → plain text
+        // .txt, .md, or unknown plain text
         auto* plain = new PlainTextEditor(this);
         if (!plain->loadFile(path)) { delete plain; return; }
         editor = plain;
@@ -890,6 +902,7 @@ void MainWindow::closeEvent(QCloseEvent* event)
     }
     event->accept();
 }
+
 
 
 

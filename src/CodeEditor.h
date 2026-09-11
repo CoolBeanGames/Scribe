@@ -25,6 +25,8 @@ public:
     bool canUndo() const override { return m_editor->document()->isUndoAvailable(); }
     bool canRedo() const override { return m_editor->document()->isRedoAvailable(); }
 
+private slots:
+    void onCustomContextMenu(const QPoint& pos);
 signals:
     void modificationChanged(bool modified);
     void runRequested();
@@ -34,3 +36,4 @@ private:
     QString m_filePath;
     bool m_modified = false;
 };
+

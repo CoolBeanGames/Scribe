@@ -1,3 +1,4 @@
+#include <QMenu>
 #include "SpreadsheetEditor.h"
 #include <QLineEdit>
 #include <QHeaderView>
@@ -100,6 +101,8 @@ SpreadsheetEditor::SpreadsheetEditor(QWidget* parent)
     layout->addWidget(m_table);
 
     m_table->installEventFilter(this);
+    m_table->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_table, &QWidget::customContextMenuRequested, this, &SpreadsheetEditor::onCustomContextMenu);
     m_formulaBar->installEventFilter(this);
     connect(m_table, &QTableWidget::itemSelectionChanged, this, &SpreadsheetEditor::onSelectionChanged);
 
@@ -453,3 +456,10 @@ void SpreadsheetEditor::onSelectionChanged() {
         }
     }
 }
+
+void SpreadsheetEditor::onCustomContextMenu(const QPoint& pos) {
+    QMenu menu(this);
+    buildContextMenu(&menu);
+    menu.exec(m_table->mapToGlobal(pos));
+}
+
