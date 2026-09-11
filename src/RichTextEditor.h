@@ -41,6 +41,8 @@ public:
     void insertTable(int rows, int cols);
     void insertImage(const QString& imagePath);
     void insertHyperlink(const QString& url, const QString& text);
+    void toggleList();
+    void buildContextMenu(QMenu* menu) override;
 
     // Query current char format
     QTextCharFormat currentCharFormat() const;
@@ -63,6 +65,10 @@ protected:
     bool eventFilter(QObject* obj, QEvent* event) override;
 
 private slots:
+    void onCustomContextMenu(const QPoint& pos);
     void onDocumentModified();
 };
+
+
+
 

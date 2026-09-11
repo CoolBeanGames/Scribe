@@ -104,7 +104,7 @@ SpreadsheetEditor::SpreadsheetEditor(QWidget* parent)
     m_table->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_table, &QWidget::customContextMenuRequested, this, &SpreadsheetEditor::onCustomContextMenu);
     m_formulaBar->installEventFilter(this);
-    connect(m_table, &QTableWidget::itemSelectionChanged, this, &SpreadsheetEditor::onSelectionChanged);
+    connect(m_table, &QTableWidget::cellClicked, this, &SpreadsheetEditor::onCellClicked);
 
     connect(m_table, &QTableWidget::cellChanged, this, &SpreadsheetEditor::onCellChanged);
 }
@@ -374,6 +374,7 @@ bool SpreadsheetEditor::eventFilter(QObject* obj, QEvent* event) {
 }
 
 void SpreadsheetEditor::enterFormulaMode() {
+    m_table->setSelectionMode(QAbstractItemView::NoSelection);
     m_inFormulaMode = true;
     m_formulaRow = m_table->currentRow();
     m_formulaCol = m_table->currentColumn();
@@ -383,6 +384,7 @@ void SpreadsheetEditor::enterFormulaMode() {
 }
 
 void SpreadsheetEditor::exitFormulaMode(bool apply) {
+    m_table->setSelectionMode(QAbstractItemView::ExtendedSelection);
     if (apply && m_formulaRow >= 0 && m_formulaCol >= 0) {
         QTableWidgetItem* item = m_table->item(m_formulaRow, m_formulaCol);
         if (!item) {
@@ -446,14 +448,10 @@ QString SpreadsheetEditor::getCellName(int r, int c) const {
     return header + QString::number(r + 1);
 }
 
-void SpreadsheetEditor::onSelectionChanged() {
+void SpreadsheetEditor::onCellClicked(int row, int column) {
     if (m_inFormulaMode) {
-        auto items = m_table->selectedItems();
-        if (!items.isEmpty()) {
-            auto* item = items.first();
-            QString cellName = getCellName(item->row(), item->column());
-            m_formulaBar->setText(m_formulaBar->text() + cellName);
-        }
+        QString cellName = getCellName(row, column);
+        m_formulaBar->setText(m_formulaBar->text() + cellName);
     }
 }
 
@@ -461,5 +459,19 @@ void SpreadsheetEditor::onCustomContextMenu(const QPoint& pos) {
     QMenu menu(this);
     buildContextMenu(&menu);
     menu.exec(m_table->mapToGlobal(pos));
+}
+
+
+
+void SpreadsheetEditor::buildContextMenu(QMenu* menu)
+{
+    menu->addSeparator();
+    QAction* actClear = menu->addAction("Clear Contents");
+    connect(actClear, &QAction::triggered, this, [this]() {
+        for (auto* item : m_table->selectedItems()) {
+            item->setText("");
+        }
+        setModified(true);
+    });
 }
 

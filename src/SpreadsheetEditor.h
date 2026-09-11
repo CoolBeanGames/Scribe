@@ -48,6 +48,7 @@ private:
     int m_formulaCol = -1;
     void enterFormulaMode();
     void exitFormulaMode(bool apply);
+    void buildContextMenu(QMenu* menu) override;
 
     QStringList parseCsvLine(const QString& line) const;
     QString toCsvField(const QString& value) const;
@@ -57,7 +58,11 @@ private:
     double evaluateExpression(const QString& expr) const;
 
 private slots:
+    void onCustomContextMenu(const QPoint& pos);
     void onCellChanged();
-    void onSelectionChanged();
+    void onCellClicked(int row, int column);
 };
+
+
+
 
