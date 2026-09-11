@@ -2,6 +2,7 @@
 #include "PlainTextEditor.h"
 #include "RichTextEditor.h"
 #include "SpreadsheetEditor.h"
+#include "CodeEditor.h"
 #include <QTabBar>
 #include <QMessageBox>
 #include <QPushButton>
@@ -52,6 +53,10 @@ int TabWidget::addEditor(EditorBase* editor)
         connect(sheet, &SpreadsheetEditor::filePathChanged, this, [this, editor](const QString&) {
             updateTabLabel(editor);
         });
+    } else if (auto* code = qobject_cast<CodeEditor*>(editor->widget())) {
+        connect(code, &CodeEditor::modificationChanged, this, [this, editor](bool) {
+            updateTabLabel(editor);
+        });
     }
 
     setCurrentIndex(idx);
@@ -80,20 +85,22 @@ void TabWidget::updateTabLabel(EditorBase* editor)
     }
     setTabText(idx, name);
 
-    QPixmap pm(16, 16);
+    QPixmap pm(14, 14);
     pm.fill(Qt::transparent);
     {
         QPainter p(&pm);
         p.setRenderHint(QPainter::Antialiasing);
         p.setPen(Qt::NoPen);
         if (editor->documentType() == DocumentType::PlainText) {
-            p.setBrush(QColor("#4A90E2"));
+            p.setBrush(QColor("#61AFEF")); // Blue
         } else if (editor->documentType() == DocumentType::RichText) {
-            p.setBrush(QColor("#8B7CFF"));
+            p.setBrush(QColor("#8B7CFF")); // Violet
+        } else if (editor->documentType() == DocumentType::Code) {
+            p.setBrush(QColor("#98C379")); // Green
         } else {
-            p.setBrush(QColor("#50E3C2"));
+            p.setBrush(QColor("#E5C07B")); // Amber / Spreadsheet
         }
-        p.drawRoundedRect(2, 2, 12, 12, 3, 3);
+        p.drawRoundedRect(1, 2, 10, 10, 3, 3);
     }
     setTabIcon(idx, QIcon(pm));
 }

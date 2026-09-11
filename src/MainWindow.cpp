@@ -2,6 +2,7 @@
 #include <QStandardPaths>
 #include <QDir>
 #include "MainWindow.h"
+#include "ScribeIcons.h"
 #include "FlowLayout.h"
 #include <QVBoxLayout>
 #include "Theme.h"
@@ -40,6 +41,7 @@ MainWindow::MainWindow(QWidget* parent)
 
     // Toolbar container with FlowLayout
     QWidget* toolbarContainer = new QWidget(centralWidget);
+    toolbarContainer->setObjectName("ToolbarContainer");
     FlowLayout* flowLayout = new FlowLayout(toolbarContainer, 0, 0, 0);
 
     m_mainToolbar = new QToolBar(toolbarContainer);
@@ -143,30 +145,31 @@ void MainWindow::setupMenuBar()
 // ---------------------------------------------------------------------------
 void MainWindow::setupMainToolbar()
 {
-    m_actRunCode = new QAction("? Run", this);
-    m_actRunCode->setToolTip("Run Code");
-    connect(m_actRunCode, &QAction::triggered, this, &MainWindow::runCurrentCode);
-    m_mainToolbar->addAction(m_actRunCode);
     // m_mainToolbar initialized in constructor
     m_mainToolbar->setMovable(false);
     m_mainToolbar->setObjectName("MainToolBar");
+    m_mainToolbar->setIconSize(QSize(18, 18));
 
+    m_actRunCode = new QAction(ScribeIcons::runIcon(), "Run", this);
+    m_actRunCode->setToolTip("Run Code (Python)");
+    connect(m_actRunCode, &QAction::triggered, this, &MainWindow::runCurrentCode);
+    m_mainToolbar->addAction(m_actRunCode);
 
-    QAction* open   = m_mainToolbar->addAction("📂 Open");
-    QAction* save   = m_mainToolbar->addAction("💾 Save");
+    QAction* open = m_mainToolbar->addAction(ScribeIcons::openIcon(), "Open");
+    QAction* save = m_mainToolbar->addAction(ScribeIcons::saveIcon(), "Save");
     m_mainToolbar->addSeparator();
-    QAction* undo   = m_mainToolbar->addAction("↩ Undo");
-    QAction* redo   = m_mainToolbar->addAction("↪ Redo");
+    QAction* undo = m_mainToolbar->addAction(ScribeIcons::undoIcon(), "Undo");
+    QAction* redo = m_mainToolbar->addAction(ScribeIcons::redoIcon(), "Redo");
 
-open->setToolTip("Open file (Ctrl+O)");
+    open->setToolTip("Open File (Ctrl+O)");
     save->setToolTip("Save (Ctrl+S)");
     undo->setToolTip("Undo (Ctrl+Z)");
     redo->setToolTip("Redo (Ctrl+Y)");
 
-connect(open, &QAction::triggered, this, qOverload<>(&MainWindow::openFile));
-    connect(save,   &QAction::triggered, this, &MainWindow::saveCurrentFile);
-    connect(undo,   &QAction::triggered, this, &MainWindow::onUndoAction);
-    connect(redo,   &QAction::triggered, this, &MainWindow::onRedoAction);
+    connect(open, &QAction::triggered, this, qOverload<>(&MainWindow::openFile));
+    connect(save, &QAction::triggered, this, &MainWindow::saveCurrentFile);
+    connect(undo, &QAction::triggered, this, &MainWindow::onUndoAction);
+    connect(redo, &QAction::triggered, this, &MainWindow::onRedoAction);
 }
 
 // ---------------------------------------------------------------------------
@@ -177,77 +180,64 @@ void MainWindow::setupFormatToolbar()
     // m_formatToolbar initialized in constructor
     m_formatToolbar->setMovable(false);
     m_formatToolbar->setObjectName("FormatToolBar");
+    m_formatToolbar->setIconSize(QSize(18, 18));
 
     // Font family
     m_fontCombo = new QFontComboBox(m_formatToolbar);
-    m_fontCombo->setFixedWidth(180);
-    m_fontCombo->setToolTip("Font family");
+    m_fontCombo->setFixedWidth(170);
+    m_fontCombo->setToolTip("Font Family");
     m_formatToolbar->addWidget(m_fontCombo);
-
-    m_formatToolbar->addSeparator();
 
     // Font size
     m_fontSizeSpin = new QSpinBox(m_formatToolbar);
     m_fontSizeSpin->setRange(6, 144);
     m_fontSizeSpin->setValue(12);
-    m_fontSizeSpin->setFixedWidth(60);
-    m_fontSizeSpin->setToolTip("Font size");
+    m_fontSizeSpin->setFixedWidth(56);
+    m_fontSizeSpin->setToolTip("Font Size");
     m_formatToolbar->addWidget(m_fontSizeSpin);
 
     m_formatToolbar->addSeparator();
 
     // Bold / Italic / Underline
-    m_actBold      = m_formatToolbar->addAction("B");
-    m_actItalic    = m_formatToolbar->addAction("I");
-    m_actUnderline = m_formatToolbar->addAction("U");
+    m_actBold      = m_formatToolbar->addAction(ScribeIcons::boldIcon(), "");
+    m_actItalic    = m_formatToolbar->addAction(ScribeIcons::italicIcon(), "");
+    m_actUnderline = m_formatToolbar->addAction(ScribeIcons::underlineIcon(), "");
     m_actBold->setCheckable(true);
     m_actItalic->setCheckable(true);
     m_actUnderline->setCheckable(true);
-    m_actBulletList = m_formatToolbar->addAction("• List");
-    m_actBulletList->setToolTip("Bullet List");
-    m_actNumberedList = m_formatToolbar->addAction("1. List");
-    m_actNumberedList->setToolTip("Numbered List");
     m_actBold->setToolTip("Bold (Ctrl+B)");
     m_actItalic->setToolTip("Italic (Ctrl+I)");
     m_actUnderline->setToolTip("Underline (Ctrl+U)");
 
-    // Style the bold/italic/underline text
-    QFont boldFont = m_actBold->font();
-    boldFont.setBold(true);
-    boldFont.setPointSize(13);
-    m_actBold->setFont(boldFont);
+    m_formatToolbar->addSeparator();
 
-    QFont italFont = m_actItalic->font();
-    italFont.setItalic(true);
-    italFont.setPointSize(13);
-    m_actItalic->setFont(italFont);
-
-    QFont ulFont = m_actUnderline->font();
-    ulFont.setUnderline(true);
-    ulFont.setPointSize(13);
-    m_actUnderline->setFont(ulFont);
+    // Lists
+    m_actBulletList = m_formatToolbar->addAction(ScribeIcons::bulletListIcon(), "");
+    m_actBulletList->setToolTip("Bullet List");
+    m_actNumberedList = m_formatToolbar->addAction(ScribeIcons::numberedListIcon(), "");
+    m_actNumberedList->setToolTip("Numbered List");
 
     m_formatToolbar->addSeparator();
 
     // Font color
-    m_actFontColor = m_formatToolbar->addAction("A");
-    m_actFontColor->setToolTip("Font color");
+    m_actFontColor = m_formatToolbar->addAction(ScribeIcons::fontColorIcon(), "");
+    m_actFontColor->setToolTip("Font Color");
 
     m_formatToolbar->addSeparator();
 
     // Alignment
-    m_actAlignLeft   = m_formatToolbar->addAction("≡L");
-    m_actAlignCenter = m_formatToolbar->addAction("≡C");
-    m_actAlignRight  = m_formatToolbar->addAction("≡R");
-    m_actAlignJust   = m_formatToolbar->addAction("≡J");
+    m_actAlignLeft   = m_formatToolbar->addAction(ScribeIcons::alignLeftIcon(), "");
+    m_actAlignCenter = m_formatToolbar->addAction(ScribeIcons::alignCenterIcon(), "");
+    m_actAlignRight  = m_formatToolbar->addAction(ScribeIcons::alignRightIcon(), "");
+    m_actAlignJust   = m_formatToolbar->addAction(ScribeIcons::alignJustifyIcon(), "");
     m_actAlignLeft->setCheckable(true);
     m_actAlignCenter->setCheckable(true);
     m_actAlignRight->setCheckable(true);
     m_actAlignJust->setCheckable(true);
     m_actAlignLeft->setChecked(true);
-    m_actAlignLeft->setToolTip("Align left");
-    m_actAlignCenter->setToolTip("Align center");
-    m_actAlignRight->setToolTip("Align right");
+    m_actAlignLeft->setToolTip("Align Left");
+    m_actAlignCenter->setToolTip("Align Center");
+    m_actAlignRight->setToolTip("Align Right");
     m_actAlignJust->setToolTip("Justify");
 
     m_formatToolbar->addSeparator();
@@ -256,20 +246,20 @@ void MainWindow::setupFormatToolbar()
     m_headingCombo = new QComboBox(m_formatToolbar);
     m_headingCombo->addItem("Normal");
     for (int i = 1; i <= 6; ++i)
-        m_headingCombo->addItem(QString("H%1").arg(i));
-    m_headingCombo->setFixedWidth(80);
-    m_headingCombo->setToolTip("Heading style");
+        m_headingCombo->addItem(QString("Heading %1").arg(i));
+    m_headingCombo->setFixedWidth(100);
+    m_headingCombo->setToolTip("Heading Style");
     m_formatToolbar->addWidget(m_headingCombo);
 
     m_formatToolbar->addSeparator();
 
     // Insert actions
-    m_actInsertTable = m_formatToolbar->addAction("⊞ Table");
-    m_actInsertImage = m_formatToolbar->addAction("🖼 Image");
-    m_actInsertLink  = m_formatToolbar->addAction("🔗 Link");
-    m_actInsertTable->setToolTip("Insert table");
-    m_actInsertImage->setToolTip("Insert image");
-    m_actInsertLink->setToolTip("Insert hyperlink");
+    m_actInsertTable = m_formatToolbar->addAction(ScribeIcons::tableIcon(), "Table");
+    m_actInsertImage = m_formatToolbar->addAction(ScribeIcons::imageIcon(), "Image");
+    m_actInsertLink  = m_formatToolbar->addAction(ScribeIcons::linkIcon(), "Link");
+    m_actInsertTable->setToolTip("Insert Table");
+    m_actInsertImage->setToolTip("Insert Image");
+    m_actInsertLink->setToolTip("Insert Hyperlink");
 
     // Connect
     connect(m_fontCombo,    &QFontComboBox::currentFontChanged, this, [this](const QFont& f) {
@@ -304,19 +294,21 @@ void MainWindow::setupSheetToolbar()
     // m_sheetToolbar initialized in constructor
     m_sheetToolbar->setMovable(false);
     m_sheetToolbar->setObjectName("SheetToolBar");
+    m_sheetToolbar->setIconSize(QSize(18, 18));
 
-    m_actAddRow = m_sheetToolbar->addAction("+ Row");
-    m_actAddCol = m_sheetToolbar->addAction("+ Column");
+    m_actAddRow = m_sheetToolbar->addAction(ScribeIcons::addRowIcon(), "Row");
+    m_actAddCol = m_sheetToolbar->addAction(ScribeIcons::addColIcon(), "Column");
     m_sheetToolbar->addSeparator();
-    m_actDelRow = m_sheetToolbar->addAction("- Row");
-    m_actDelCol = m_sheetToolbar->addAction("- Column");
+    m_actDelRow = m_sheetToolbar->addAction(ScribeIcons::delRowIcon(), "");
+    m_actDelCol = m_sheetToolbar->addAction(ScribeIcons::delColIcon(), "");
     m_sheetToolbar->addSeparator();
-    m_actCellColor = m_sheetToolbar->addAction("Fill Color");
+    m_actCellColor = m_sheetToolbar->addAction(ScribeIcons::cellColorIcon(), "Color");
 
-    m_actAddRow->setToolTip("Add row");
-    m_actAddCol->setToolTip("Add column");
-    m_actDelRow->setToolTip("Delete current row");
-    m_actDelCol->setToolTip("Delete current column");
+    m_actAddRow->setToolTip("Add Row Below");
+    m_actAddCol->setToolTip("Add Column Right");
+    m_actDelRow->setToolTip("Delete Current Row");
+    m_actDelCol->setToolTip("Delete Current Column");
+    m_actCellColor->setToolTip("Set Cell Background Color");
 
     connect(m_actAddRow, &QAction::triggered, this, &MainWindow::onAddRow);
     connect(m_actAddCol, &QAction::triggered, this, &MainWindow::onAddColumn);
