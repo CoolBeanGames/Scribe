@@ -386,3 +386,19 @@ void RichTextEditor::onCustomContextMenu(const QPoint& pos) {
     delete menu;
 }
 
+
+void RichTextEditor::toggleList()
+{
+    QTextCursor cursor = m_editor->textCursor();
+    QTextList* list = cursor.currentList();
+    if (list) {
+        QTextBlockFormat bfmt = cursor.blockFormat();
+        bfmt.setObjectIndex(-1);
+        cursor.setBlockFormat(bfmt);
+    } else {
+        QTextListFormat listFmt;
+        listFmt.setStyle(QTextListFormat::ListDisc);
+        cursor.createList(listFmt);
+    }
+}
+

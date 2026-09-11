@@ -201,6 +201,9 @@ void MainWindow::setupFormatToolbar()
     m_actBold->setCheckable(true);
     m_actItalic->setCheckable(true);
     m_actUnderline->setCheckable(true);
+    m_actList = m_formatToolbar->addAction(" List");
+    m_actList->setCheckable(true);
+    m_actList->setToolTip("Toggle Bullet List");
     m_actBold->setToolTip("Bold (Ctrl+B)");
     m_actItalic->setToolTip("Italic (Ctrl+I)");
     m_actUnderline->setToolTip("Underline (Ctrl+U)");
@@ -274,6 +277,7 @@ void MainWindow::setupFormatToolbar()
     connect(m_actBold,      &QAction::toggled, this, &MainWindow::onBoldToggled);
     connect(m_actItalic,    &QAction::toggled, this, &MainWindow::onItalicToggled);
     connect(m_actUnderline, &QAction::toggled, this, &MainWindow::onUnderlineToggled);
+    connect(m_actList, &QAction::triggered, this, [this](bool) { if(auto* r = currentRichEditor()) r->toggleList(); });
     connect(m_actFontColor, &QAction::triggered, this, &MainWindow::onFontColor);
     connect(m_actAlignLeft,   &QAction::triggered, this, &MainWindow::onAlignLeft);
     connect(m_actAlignCenter, &QAction::triggered, this, &MainWindow::onAlignCenter);
@@ -935,6 +939,9 @@ void MainWindow::closeEvent(QCloseEvent* event)
     }
     event->accept();
 }
+
+
+
 
 
 
