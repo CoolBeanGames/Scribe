@@ -63,6 +63,8 @@ protected:
     bool eventFilter(QObject* obj, QEvent* event) override;
 
 private slots:
+    void onCustomContextMenu(const QPoint& pos);
     void onDocumentModified();
 };
+
 

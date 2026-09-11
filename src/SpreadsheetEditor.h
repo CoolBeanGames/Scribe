@@ -57,7 +57,9 @@ private:
     double evaluateExpression(const QString& expr) const;
 
 private slots:
+    void onCustomContextMenu(const QPoint& pos);
     void onCellChanged();
     void onSelectionChanged();
 };
+
 

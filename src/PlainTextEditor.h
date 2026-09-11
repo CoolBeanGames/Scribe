@@ -41,5 +41,7 @@ private:
     QString getIndentForCurrentLine() const;
 
 private slots:
+    void onCustomContextMenu(const QPoint& pos);
     void onDocumentModified();
 };
+
