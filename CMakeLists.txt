@@ -34,6 +34,8 @@ set(SOURCES
     src/CodeEditor.cpp
     src/CodeEditor.h
     src/CodeEditorWidget.cpp
+    src/FlowLayout.cpp
+    src/FlowLayout.h
     src/CodeEditorWidget.h
     src/PythonHighlighter.cpp
     src/PythonHighlighter.h
@@ -60,4 +62,5 @@ if(WIN32)
 endif()
 
 # Post-build: deploy Qt DLLs (optional, run windeployqt manually if needed)
+
 

@@ -1,4 +1,6 @@
 #include "MainWindow.h"
+#include "FlowLayout.h"
+#include <QVBoxLayout>
 #include "Theme.h"
 #include "InsertTableDialog.h"
 #include "InsertLinkDialog.h"
@@ -121,7 +123,7 @@ void MainWindow::setupMainToolbar()
     m_actRunCode->setToolTip("Run Code");
     connect(m_actRunCode, &QAction::triggered, this, &MainWindow::runCurrentCode);
     m_mainToolbar->addAction(m_actRunCode);
-    m_mainToolbar = addToolBar("Main");
+    // m_mainToolbar initialized in constructor
     m_mainToolbar->setMovable(false);
     m_mainToolbar->setObjectName("MainToolBar");
 
@@ -148,7 +150,7 @@ connect(open,   &QAction::triggered, this, &MainWindow::openFile);
 // ---------------------------------------------------------------------------
 void MainWindow::setupFormatToolbar()
 {
-    m_formatToolbar = addToolBar("Formatting");
+    // m_formatToolbar initialized in constructor
     m_formatToolbar->setMovable(false);
     m_formatToolbar->setObjectName("FormatToolBar");
 
@@ -269,7 +271,7 @@ void MainWindow::setupFormatToolbar()
 // ---------------------------------------------------------------------------
 void MainWindow::setupSheetToolbar()
 {
-    m_sheetToolbar = addToolBar("Spreadsheet");
+    // m_sheetToolbar initialized in constructor
     m_sheetToolbar->setMovable(false);
     m_sheetToolbar->setObjectName("SheetToolBar");
 
@@ -854,6 +856,7 @@ void MainWindow::closeEvent(QCloseEvent* event)
     }
     event->accept();
 }
+
 
 
 
