@@ -29,9 +29,30 @@ MainWindow::MainWindow(QWidget* parent)
     resize(1200, 800);
     setMinimumSize(800, 500);
 
+    // Main layout
+    QWidget* centralWidget = new QWidget(this);
+    QVBoxLayout* mainLayout = new QVBoxLayout(centralWidget);
+    mainLayout->setContentsMargins(0, 0, 0, 0);
+    mainLayout->setSpacing(0);
+
+    // Toolbar container with FlowLayout
+    QWidget* toolbarContainer = new QWidget(centralWidget);
+    FlowLayout* flowLayout = new FlowLayout(toolbarContainer, 0, 0, 0);
+
+    m_mainToolbar = new QToolBar(toolbarContainer);
+    m_formatToolbar = new QToolBar(toolbarContainer);
+    m_sheetToolbar = new QToolBar(toolbarContainer);
+
+    flowLayout->addWidget(m_mainToolbar);
+    flowLayout->addWidget(m_formatToolbar);
+    flowLayout->addWidget(m_sheetToolbar);
+
     // Central widget: the tab widget
-    m_tabWidget = new TabWidget(this);
-    setCentralWidget(m_tabWidget);
+    m_tabWidget = new TabWidget(centralWidget);
+    
+    mainLayout->addWidget(toolbarContainer);
+    mainLayout->addWidget(m_tabWidget);
+    setCentralWidget(centralWidget);
 
     setupMenuBar();
     setupMainToolbar();
