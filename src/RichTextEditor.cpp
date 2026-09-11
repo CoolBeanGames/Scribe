@@ -294,14 +294,10 @@ void RichTextEditor::insertImage(const QString& imagePath)
     QString name = QFileInfo(imagePath).fileName();
     m_editor->document()->addResource(QTextDocument::ImageResource,
                                        QUrl(name), image);
-
-    QTextImageFormat imgFormat;
-    imgFormat.setName(name);
-    imgFormat.setWidth(image.width());
-    imgFormat.setHeight(image.height());
-
+    
     QTextCursor cursor = m_editor->textCursor();
-    cursor.insertImage(imgFormat);
+    cursor.insertHtml(QString("<img src=\"%1\" style=\"float: left; margin: 10px;\" width=\"%2\" height=\"%3\" />")
+        .arg(name).arg(image.width()).arg(image.height()));
 }
 
 void RichTextEditor::insertHyperlink(const QString& url, const QString& text)
@@ -338,3 +334,4 @@ void RichTextEditor::onDocumentModified()
         emit modificationChanged(mod);
     }
 }
+
