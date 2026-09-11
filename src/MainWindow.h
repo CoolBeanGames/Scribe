@@ -68,7 +68,8 @@ private:
     QAction* m_actAddRow    = nullptr;
     QAction* m_actAddCol    = nullptr;
     QAction* m_actDelRow    = nullptr;
-    QAction* m_actDelCol    = nullptr;
+    QAction* m_actDelCol = nullptr;
+    QAction* m_actCellColor = nullptr;
 
     // Setup helpers
     void setupMenuBar();
@@ -122,6 +123,7 @@ private:
     void onAddColumn();
     void onDeleteRow();
     void onDeleteColumn();
+    void onCellColor();
 
     // Sync format toolbar state from current cursor
     void syncFormatToolbar();
@@ -132,6 +134,7 @@ private slots:
     void onUndoAction();
     void onRedoAction();
 };
+
 
 
 

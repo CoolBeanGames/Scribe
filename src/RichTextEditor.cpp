@@ -31,6 +31,7 @@ RichTextEditor::RichTextEditor(QWidget* parent)
     m_editor->document()->setDefaultFont(defaultFont);
 
     layout->addWidget(m_editor);
+    m_editor->installEventFilter(this);
 
     // Track modifications
     connect(m_editor->document(), &QTextDocument::modificationChanged,
@@ -170,6 +171,44 @@ void RichTextEditor::undo()
 void RichTextEditor::redo()
 {
     m_editor->redo();
+}
+
+bool RichTextEditor::eventFilter(QObject* obj, QEvent* event)
+{
+    if (obj == m_editor && event->type() == QEvent::KeyPress) {
+        QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+        if (keyEvent->key() == Qt::Key_Space) {
+            QTextCursor cursor = m_editor->textCursor();
+            QTextCursor lineCursor = cursor;
+            lineCursor.movePosition(QTextCursor::StartOfBlock, QTextCursor::KeepAnchor);
+            QString text = lineCursor.selectedText();
+            if (text == "-" || text == "*") {
+                lineCursor.removeSelectedText();
+                QTextListFormat listFormat;
+                listFormat.setStyle(QTextListFormat::ListDisc);
+                listFormat.setIndent(1);
+                cursor.createList(listFormat);
+                return true;
+            }
+        } else if (keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter) {
+            QTextCursor cursor = m_editor->textCursor();
+            if (cursor.currentList()) {
+                QTextCursor blockCursor = cursor;
+                blockCursor.select(QTextCursor::BlockUnderCursor);
+                QString text = blockCursor.selectedText().remove(QChar::ParagraphSeparator).trimmed();
+                if (text.isEmpty()) {
+                    QTextBlockFormat blockFormat = cursor.blockFormat();
+                    blockFormat.setObjectIndex(-1);
+                    cursor.setBlockFormat(blockFormat);
+                    cursor.movePosition(QTextCursor::StartOfBlock);
+                    cursor.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+                    cursor.removeSelectedText();
+                    return true;
+                }
+            }
+        }
+    }
+    return QWidget::eventFilter(obj, event);
 }
 
 void RichTextEditor::setBold(bool bold)
@@ -334,4 +373,5 @@ void RichTextEditor::onDocumentModified()
         emit modificationChanged(mod);
     }
 }
+
 

@@ -32,6 +32,7 @@ public:
     void addColumn();
     void deleteRow();
     void deleteColumn();
+    void setCellColor(const QColor& color);
 
 signals:
     void modificationChanged(bool modified);
@@ -53,3 +54,4 @@ private:
 private slots:
     void onCellChanged();
 };
+

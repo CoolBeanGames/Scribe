@@ -59,6 +59,10 @@ private:
     QString    m_filePath;
     bool       m_modified  = false;
 
+protected:
+    bool eventFilter(QObject* obj, QEvent* event) override;
+
 private slots:
     void onDocumentModified();
 };
+

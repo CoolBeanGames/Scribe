@@ -239,6 +239,35 @@ void SpreadsheetEditor::deleteColumn()
     }
 }
 
+void SpreadsheetEditor::setCellColor(const QColor& color)
+{
+    QList<QTableWidgetItem*> items = m_table->selectedItems();
+    for (QTableWidgetItem* item : items) {
+        if (!item) {
+            // QTableWidget might return null items if they haven't been edited
+            int r = item ? item->row() : 0; // wait, if item is null we can't get row
+            // We should just iterate rows/cols of selection
+        }
+    }
+    // Correct way for QTableWidget:
+    QList<QTableWidgetSelectionRange> ranges = m_table->selectedRanges();
+    bool changed = false;
+    for (auto range : ranges) {
+        for (int r = range.topRow(); r <= range.bottomRow(); ++r) {
+            for (int c = range.leftColumn(); c <= range.rightColumn(); ++c) {
+                QTableWidgetItem* it = m_table->item(r, c);
+                if (!it) {
+                    it = new QTableWidgetItem();
+                    m_table->setItem(r, c, it);
+                }
+                it->setBackground(color);
+                changed = true;
+            }
+        }
+    }
+    if (changed) setModified(true);
+}
+
 QStringList SpreadsheetEditor::parseCsvLine(const QString& line) const
 {
     QStringList result;
@@ -309,3 +338,4 @@ void SpreadsheetEditor::onCellChanged()
         setModified(true);
     }
 }
+

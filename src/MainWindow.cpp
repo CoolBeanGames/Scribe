@@ -280,6 +280,8 @@ void MainWindow::setupSheetToolbar()
     m_sheetToolbar->addSeparator();
     m_actDelRow = m_sheetToolbar->addAction("- Row");
     m_actDelCol = m_sheetToolbar->addAction("- Column");
+    m_sheetToolbar->addSeparator();
+    m_actCellColor = m_sheetToolbar->addAction("Fill Color");
 
     m_actAddRow->setToolTip("Add row");
     m_actAddCol->setToolTip("Add column");
@@ -290,6 +292,7 @@ void MainWindow::setupSheetToolbar()
     connect(m_actAddCol, &QAction::triggered, this, &MainWindow::onAddColumn);
     connect(m_actDelRow, &QAction::triggered, this, &MainWindow::onDeleteRow);
     connect(m_actDelCol, &QAction::triggered, this, &MainWindow::onDeleteColumn);
+    connect(m_actCellColor, &QAction::triggered, this, &MainWindow::onCellColor);
 
     m_sheetToolbar->setVisible(false);
 }
@@ -723,6 +726,16 @@ void MainWindow::onDeleteColumn()
     if (auto* sheet = currentSheetEditor()) sheet->deleteColumn();
 }
 
+void MainWindow::onCellColor()
+{
+    if (auto* sheet = currentSheetEditor()) {
+        QColor color = QColorDialog::getColor(Qt::white, this, "Select Cell Color");
+        if (color.isValid()) {
+            sheet->setCellColor(color);
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Sync format toolbar from current cursor position
 // ---------------------------------------------------------------------------
@@ -856,6 +869,7 @@ void MainWindow::closeEvent(QCloseEvent* event)
     }
     event->accept();
 }
+
 
 
 
