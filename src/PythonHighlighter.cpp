@@ -18,7 +18,10 @@ PythonHighlighter::PythonHighlighter(QTextDocument *parent) : QSyntaxHighlighter
         "\\bnonlocal\\b","\\bnot\\b",    "\\bor\\b",
         "\\bpass\\b",   "\\braise\\b",   "\\breturn\\b",
         "\\btry\\b",    "\\bwhile\\b",   "\\bwith\\b",
-        "\\byield\\b",  "\\bdef\\b"
+        "\\byield\\b",  "\\bdef\\b",
+        // Extended language / scripting keywords requested by user (var, func, etc.)
+        "\\bvar\\b",    "\\bfunc\\b",    "\\blet\\b",
+        "\\bconst\\b",  "\\bfunction\\b"
     };
     for (const QString &pattern : keywordPatterns) {
         rule.pattern = QRegularExpression(pattern);
@@ -33,6 +36,7 @@ PythonHighlighter::PythonHighlighter(QTextDocument *parent) : QSyntaxHighlighter
         "\\bbool\\b",  "\\bbytes\\b",  "\\bbytearray\\b",
         "\\blist\\b",  "\\btuple\\b",  "\\bset\\b",    "\\bfrozenset\\b",
         "\\bdict\\b",  "\\brange\\b",  "\\btype\\b",   "\\bobject\\b",
+        "\\bstring\\b","\\bchar\\b",   "\\bvoid\\b",   "\\bauto\\b",
         "\\bprint\\b", "\\blen\\b",    "\\brange\\b",  "\\benumerate\\b",
         "\\bzip\\b",   "\\bmap\\b",    "\\bfilter\\b", "\\bsorted\\b",
         "\\breversed\\b","\\bsum\\b",  "\\bmin\\b",    "\\bmax\\b",

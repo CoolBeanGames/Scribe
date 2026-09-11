@@ -288,5 +288,15 @@ QLabel {
     color: #F4F6FA;
     background: transparent;
 }
+
+/* Completer Popup */
+QAbstractItemView {
+    background-color: #161A22;
+    color: #F4F6FA;
+    border: 1px solid #262C38;
+    selection-background-color: #2D3A52;
+    selection-color: #F4F6FA;
+    outline: none;
+}
 )";
 } // namespace Theme
