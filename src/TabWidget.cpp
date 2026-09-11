@@ -5,6 +5,9 @@
 #include <QTabBar>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QPainter>
+#include <QIcon>
+#include <QColor>
 
 TabWidget::TabWidget(QWidget* parent)
     : QTabWidget(parent)
@@ -76,6 +79,23 @@ void TabWidget::updateTabLabel(EditorBase* editor)
         name = "• " + name;
     }
     setTabText(idx, name);
+
+    QPixmap pm(16, 16);
+    pm.fill(Qt::transparent);
+    {
+        QPainter p(&pm);
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setPen(Qt::NoPen);
+        if (editor->documentType() == DocumentType::PlainText) {
+            p.setBrush(QColor("#4A90E2"));
+        } else if (editor->documentType() == DocumentType::RichText) {
+            p.setBrush(QColor("#8B7CFF"));
+        } else {
+            p.setBrush(QColor("#50E3C2"));
+        }
+        p.drawRoundedRect(2, 2, 12, 12, 3, 3);
+    }
+    setTabIcon(idx, QIcon(pm));
 }
 
 void TabWidget::removeEditor(EditorBase* editor)
@@ -98,3 +118,4 @@ void TabWidget::onCurrentChanged(int index)
 {
     emit editorChanged(editorAt(index));
 }
+

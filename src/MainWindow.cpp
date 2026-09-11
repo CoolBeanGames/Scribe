@@ -59,9 +59,18 @@ void MainWindow::setupMenuBar()
     QMenu* fileMenu = mb->addMenu("&File");
 
     QMenu* newMenu = fileMenu->addMenu("&New");
-    m_actNewTxt = newMenu->addAction("Plain Text (.txt)");
-    m_actNewRtf = newMenu->addAction("Rich Text (.rtf)");
-    m_actNewCsv = newMenu->addAction("Spreadsheet (.csv)");
+    
+    QMenu* textMenu = newMenu->addMenu("Text");
+    m_actNewTxt = textMenu->addAction(".txt");
+    m_actNewMd = textMenu->addAction(".md");
+    
+    QMenu* richTextMenu = newMenu->addMenu("Rich Text");
+    m_actNewDocx = richTextMenu->addAction(".docx");
+    m_actNewWord = richTextMenu->addAction(".word");
+    
+    QMenu* sheetMenu = newMenu->addMenu("Spreadsheet");
+    m_actNewExcel = sheetMenu->addAction("excel");
+    m_actNewCsv = sheetMenu->addAction("csv");
 
     fileMenu->addSeparator();
     m_actOpen   = fileMenu->addAction("&Open...");
@@ -86,7 +95,10 @@ void MainWindow::setupMenuBar()
 
     // ── Connect actions ───────────────────────────────────────────────────
     connect(m_actNewTxt, &QAction::triggered, this, &MainWindow::newPlainText);
-    connect(m_actNewRtf, &QAction::triggered, this, &MainWindow::newRichText);
+    connect(m_actNewMd, &QAction::triggered, this, &MainWindow::newPlainText);
+    connect(m_actNewDocx, &QAction::triggered, this, &MainWindow::newRichText);
+    connect(m_actNewWord, &QAction::triggered, this, &MainWindow::newRichText);
+    connect(m_actNewExcel, &QAction::triggered, this, &MainWindow::newSpreadsheet);
     connect(m_actNewCsv, &QAction::triggered, this, &MainWindow::newSpreadsheet);
     connect(m_actOpen,   &QAction::triggered, this, &MainWindow::openFile);
     connect(m_actSave,   &QAction::triggered, this, &MainWindow::saveCurrentFile);
@@ -105,28 +117,19 @@ void MainWindow::setupMainToolbar()
     m_mainToolbar->setMovable(false);
     m_mainToolbar->setObjectName("MainToolBar");
 
-    QAction* newTxt = m_mainToolbar->addAction("📄 New Text");
-    QAction* newRtf = m_mainToolbar->addAction("📝 New RTF");
-    QAction* newCsv = m_mainToolbar->addAction("📊 New CSV");
-    m_mainToolbar->addSeparator();
+
     QAction* open   = m_mainToolbar->addAction("📂 Open");
     QAction* save   = m_mainToolbar->addAction("💾 Save");
     m_mainToolbar->addSeparator();
     QAction* undo   = m_mainToolbar->addAction("↩ Undo");
     QAction* redo   = m_mainToolbar->addAction("↪ Redo");
 
-    newTxt->setToolTip("New Plain Text file");
-    newRtf->setToolTip("New Rich Text file");
-    newCsv->setToolTip("New Spreadsheet (CSV) file");
-    open->setToolTip("Open file (Ctrl+O)");
+open->setToolTip("Open file (Ctrl+O)");
     save->setToolTip("Save (Ctrl+S)");
     undo->setToolTip("Undo (Ctrl+Z)");
     redo->setToolTip("Redo (Ctrl+Y)");
 
-    connect(newTxt, &QAction::triggered, this, &MainWindow::newPlainText);
-    connect(newRtf, &QAction::triggered, this, &MainWindow::newRichText);
-    connect(newCsv, &QAction::triggered, this, &MainWindow::newSpreadsheet);
-    connect(open,   &QAction::triggered, this, &MainWindow::openFile);
+connect(open,   &QAction::triggered, this, &MainWindow::openFile);
     connect(save,   &QAction::triggered, this, &MainWindow::saveCurrentFile);
     connect(undo,   &QAction::triggered, this, &MainWindow::onUndoAction);
     connect(redo,   &QAction::triggered, this, &MainWindow::onRedoAction);
@@ -825,3 +828,5 @@ void MainWindow::closeEvent(QCloseEvent* event)
     }
     event->accept();
 }
+
+

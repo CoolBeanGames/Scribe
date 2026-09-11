@@ -32,9 +32,12 @@ private:
     QStatusBar*   m_statusBar     = nullptr;
 
     // Menu actions
-    QAction* m_actNewTxt   = nullptr;
-    QAction* m_actNewRtf   = nullptr;
-    QAction* m_actNewCsv   = nullptr;
+    QAction* m_actNewTxt = nullptr;
+    QAction* m_actNewMd = nullptr;
+    QAction* m_actNewDocx = nullptr;
+    QAction* m_actNewWord = nullptr;
+    QAction* m_actNewExcel = nullptr;
+    QAction* m_actNewCsv = nullptr;
     QAction* m_actOpen     = nullptr;
     QAction* m_actSave     = nullptr;
     QAction* m_actSaveAs   = nullptr;
@@ -74,7 +77,7 @@ private:
 
     // Editor management
     void newPlainText();
-    void newRichText();
+    public: void newRichText(); private:
     void newSpreadsheet();
     void openFile();
     void saveCurrentFile();
@@ -124,3 +127,4 @@ private slots:
     void onUndoAction();
     void onRedoAction();
 };
+
