@@ -1,3 +1,5 @@
+#include "InsertTableDialog.h"
+#include <QFileDialog>
 #include <QMenu>
 #include "RichTextEditor.h"
 #include <QVBoxLayout>
@@ -400,5 +402,30 @@ void RichTextEditor::toggleList()
         listFmt.setStyle(QTextListFormat::ListDisc);
         cursor.createList(listFmt);
     }
+}
+
+
+void RichTextEditor::buildContextMenu(QMenu* menu)
+{
+    menu->addSeparator();
+    QAction* actPaste = menu->addAction("Paste");
+    connect(actPaste, &QAction::triggered, m_editor, &QTextEdit::paste);
+    
+    QAction* actTable = menu->addAction("Insert Table");
+    connect(actTable, &QAction::triggered, this, [this]() {
+        InsertTableDialog dlg(this);
+        if (dlg.exec() == QDialog::Accepted) {
+            this->insertTable(dlg.rows(), dlg.columns());
+        }
+    });
+
+    QAction* actImage = menu->addAction("Insert Image");
+    connect(actImage, &QAction::triggered, this, [this]() {
+        QString filter = "Images (*.png *.jpg *.jpeg *.bmp *.gif)";
+        QString path = QFileDialog::getOpenFileName(this, "Insert Image", QString(), filter);
+        if (!path.isEmpty()) {
+            this->insertImage(path);
+        }
+    });
 }
 
