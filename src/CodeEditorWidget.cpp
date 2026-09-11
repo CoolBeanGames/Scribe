@@ -13,6 +13,7 @@ CodeEditorWidget::CodeEditorWidget(QWidget *parent) : QPlainTextEdit(parent) {
     highlightCurrentLine();
     
     highlighter = new PythonHighlighter(this->document());
+    setTabStopDistance(fontMetrics().horizontalAdvance(' ') * 4);
 }
 
 int CodeEditorWidget::lineNumberAreaWidth() {
@@ -82,6 +83,35 @@ void CodeEditorWidget::lineNumberAreaPaintEvent(QPaintEvent *event) {
 }
 
 void CodeEditorWidget::keyPressEvent(QKeyEvent* e) {
+    if (e->key() == Qt::Key_Backtab) {
+        QTextCursor cursor = textCursor();
+        int start = cursor.selectionStart();
+        int end = cursor.selectionEnd();
+        cursor.setPosition(start);
+        cursor.movePosition(QTextCursor::StartOfLine);
+        cursor.beginEditBlock();
+        while (cursor.position() <= end || (!cursor.hasSelection() && cursor.position() == end)) {
+            cursor.movePosition(QTextCursor::StartOfLine);
+            QTextCursor delCursor = cursor;
+            delCursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor, 4);
+            QString text = delCursor.selectedText();
+            int charsToRemove = 0;
+            for (int i=0; i<text.length(); ++i) {
+                if (text[i] == ' ') charsToRemove++;
+                else if (text[i] == '\t' && i == 0) { charsToRemove = 1; break; }
+                else break;
+            }
+            if (charsToRemove > 0) {
+                delCursor.setPosition(cursor.position());
+                delCursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor, charsToRemove);
+                delCursor.removeSelectedText();
+                end -= charsToRemove;
+            }
+            if (!cursor.movePosition(QTextCursor::NextBlock)) break;
+        }
+        cursor.endEditBlock();
+        return;
+    }
     if (e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter) {
         QString currentLine = textCursor().block().text();
         QPlainTextEdit::keyPressEvent(e);
@@ -99,3 +129,5 @@ void CodeEditorWidget::keyPressEvent(QKeyEvent* e) {
     }
     QPlainTextEdit::keyPressEvent(e);
 }
+
+

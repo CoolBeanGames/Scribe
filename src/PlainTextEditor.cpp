@@ -116,6 +116,35 @@ bool PlainTextEditor::canRedo() const
 
 void PlainTextEditor::keyPressEvent(QKeyEvent* event)
 {
+    if (event->key() == Qt::Key_Backtab) {
+        QTextCursor cursor = textCursor();
+        int start = cursor.selectionStart();
+        int end = cursor.selectionEnd();
+        cursor.setPosition(start);
+        cursor.movePosition(QTextCursor::StartOfLine);
+        cursor.beginEditBlock();
+        while (cursor.position() <= end || (!cursor.hasSelection() && cursor.position() == end)) {
+            cursor.movePosition(QTextCursor::StartOfLine);
+            QTextCursor delCursor = cursor;
+            delCursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor, 4);
+            QString text = delCursor.selectedText();
+            int charsToRemove = 0;
+            for (int i=0; i<text.length(); ++i) {
+                if (text[i] == ' ') charsToRemove++;
+                else if (text[i] == '\t' && i == 0) { charsToRemove = 1; break; }
+                else break;
+            }
+            if (charsToRemove > 0) {
+                delCursor.setPosition(cursor.position());
+                delCursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor, charsToRemove);
+                delCursor.removeSelectedText();
+                end -= charsToRemove;
+            }
+            if (!cursor.movePosition(QTextCursor::NextBlock)) break;
+        }
+        cursor.endEditBlock();
+        return;
+    }
     if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) {
         // Auto-indent: preserve the indentation of the current line
         QString indent = getIndentForCurrentLine();
@@ -154,3 +183,4 @@ void PlainTextEditor::onDocumentModified()
         emit modificationChanged(mod);
     }
 }
+
