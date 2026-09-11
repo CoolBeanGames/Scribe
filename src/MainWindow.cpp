@@ -1,4 +1,6 @@
 #include <QProcess>
+#include <QStandardPaths>
+#include <QDir>
 #include "MainWindow.h"
 #include "FlowLayout.h"
 #include <QVBoxLayout>
@@ -412,23 +414,57 @@ void MainWindow::runCurrentCode()
     }
 
     QProcess* process = new QProcess(this);
-    process->setProgram("python");
+
+    // Resolve python interpreter across PATH, standard python launcher (py.exe), and common user installs
+    QString pythonExe = QStandardPaths::findExecutable("python");
+    if (pythonExe.isEmpty()) {
+        pythonExe = QStandardPaths::findExecutable("python3");
+    }
+    if (pythonExe.isEmpty()) {
+        pythonExe = QStandardPaths::findExecutable("py");
+    }
+    if (pythonExe.isEmpty()) {
+        // Check Windows common install locations
+        QString localAppData = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation); // AppData/Local
+        QStringList candidateDirs = {
+            localAppData + "/Programs/Python",
+            localAppData + "/Python"
+        };
+        for (const QString& base : candidateDirs) {
+            QDir dir(base);
+            if (dir.exists()) {
+                QStringList entries = dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+                for (const QString& entry : entries) {
+                    QString candidate = base + "/" + entry + "/python.exe";
+                    if (QFile::exists(candidate)) {
+                        pythonExe = candidate;
+                        break;
+                    }
+                }
+            }
+            if (!pythonExe.isEmpty()) break;
+        }
+    }
+    if (pythonExe.isEmpty()) {
+        pythonExe = "python"; // fallback attempt
+    }
+
+    process->setProgram(pythonExe);
     process->setArguments({path});
-    
-    connect(process, &QProcess::readyReadStandardOutput, this, [this, process]() {
-        QString output = process->readAllStandardOutput();
-        // just print or show message
-    });
     
     process->start();
     if (!process->waitForStarted()) {
-        QMessageBox::critical(this, "Run Error", "Failed to start Python interpreter.");
+        QMessageBox::critical(this, "Run Error",
+            QString("Failed to start Python interpreter (%1).\nPlease ensure Python is installed or added to PATH.").arg(pythonExe));
     } else {
         process->waitForFinished();
         QString output = process->readAllStandardOutput();
         QString err = process->readAllStandardError();
         QString result = output;
-        if (!err.isEmpty()) result += "\nErrors:\n" + err;
+        if (!err.isEmpty()) {
+            if (!result.isEmpty()) result += "\n";
+            result += "Errors:\n" + err;
+        }
         QMessageBox::information(this, "Script Output", result.isEmpty() ? "Script finished with no output." : result);
     }
     process->deleteLater();
