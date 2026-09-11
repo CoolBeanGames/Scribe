@@ -32,7 +32,7 @@ if %errorlevel% neq 0 (
 echo.
 echo === Deploy Qt DLLs ===
 if exist "%BLDDIR%\Scribe.exe" (
-    windeployqt.exe --release --no-translations "%BLDDIR%\Scribe.exe"
+    windeployqt.exe --release --compiler-runtime --no-translations "%BLDDIR%\Scribe.exe"
     echo [OK] Executable: %BLDDIR%\Scribe.exe
 ) else (
     echo [WARN] Executable not found
@@ -41,3 +41,4 @@ if exist "%BLDDIR%\Scribe.exe" (
 echo.
 echo === DONE ===
 endlocal
+
