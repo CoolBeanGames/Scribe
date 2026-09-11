@@ -1,6 +1,8 @@
 #include "CodeEditorWidget.h"
 #include <QPainter>
 #include <QTextBlock>
+#include <QPalette>
+#include <QFont>
 
 CodeEditorWidget::CodeEditorWidget(QWidget *parent) : QPlainTextEdit(parent) {
     lineNumberArea = new LineNumberArea(this);
@@ -9,11 +11,28 @@ CodeEditorWidget::CodeEditorWidget(QWidget *parent) : QPlainTextEdit(parent) {
     connect(this, &CodeEditorWidget::updateRequest, this, &CodeEditorWidget::updateLineNumberArea);
     connect(this, &CodeEditorWidget::cursorPositionChanged, this, &CodeEditorWidget::highlightCurrentLine);
 
+    // Set palette explicitly so the QSyntaxHighlighter colours are not
+    // overridden by the global stylesheet's "color:" rule.
+    QPalette pal = palette();
+    pal.setColor(QPalette::Base,            QColor("#12151C"));
+    pal.setColor(QPalette::Text,            QColor("#ABB2BF"));
+    pal.setColor(QPalette::Highlight,       QColor("#2D3A52"));
+    pal.setColor(QPalette::HighlightedText, QColor("#F4F6FA"));
+    setPalette(pal);
+    setStyleSheet(""); // clear any inherited stylesheet to avoid conflicts
+
+    // Monospace font
+    QFont codeFont("Cascadia Code", 13);
+    codeFont.setStyleHint(QFont::Monospace);
+    if (!codeFont.exactMatch()) codeFont.setFamily("Consolas");
+    if (!codeFont.exactMatch()) codeFont.setFamily("Courier New");
+    setFont(codeFont);
+
     updateLineNumberAreaWidth(0);
     highlightCurrentLine();
-    
+
     highlighter = new PythonHighlighter(this->document());
-    setTabStopDistance(fontMetrics().horizontalAdvance(' ') * 4);
+    setTabStopDistance(QFontMetricsF(codeFont).horizontalAdvance(' ') * 4);
 }
 
 int CodeEditorWidget::lineNumberAreaWidth() {

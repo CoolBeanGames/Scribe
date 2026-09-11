@@ -50,6 +50,8 @@ bool CodeEditor::loadFile(const QString& path) {
     m_editor->setPlainText(in.readAll());
     m_filePath = path;
     setModified(false);
+    // Force the highlighter to re-scan the whole document now that text is loaded
+    m_editor->document()->setModified(false);
     return true;
 }
 
