@@ -236,6 +236,31 @@ inline QIcon linkIcon() {
     });
 }
 
+inline QIcon sectionBreakIcon() {
+    return makeIcon([](QPainter& p, int w, int h) {
+        p.drawLine(3, 4, 17, 4);
+        p.drawLine(3, 7, 13, 7);
+        p.drawLine(2, 10, 18, 10);
+        p.drawLine(2, 12, 18, 12);
+        p.drawLine(3, 15, 17, 15);
+    });
+}
+
+inline QIcon pageBreakIcon() {
+    return makeIcon([](QPainter& p, int w, int h) {
+        p.drawRect(4, 2, 12, 5);
+        p.drawLine(2, 10, 18, 10);
+        p.drawRect(4, 13, 12, 5);
+    });
+}
+
+inline QIcon columnsIcon() {
+    return makeIcon([](QPainter& p, int w, int h) {
+        p.drawRect(3, 3, 6, 14);
+        p.drawRect(11, 3, 6, 14);
+    });
+}
+
 inline QIcon addRowIcon() {
     return makeIcon([](QPainter& p, int w, int h) {
         // Row grid + plus

@@ -41,6 +41,9 @@ public:
     void insertTable(int rows, int cols);
     void insertImage(const QString& imagePath);
     void insertHyperlink(const QString& url, const QString& text);
+    void insertSectionBreak();
+    void insertPageBreak();
+    void setColumns(int numColumns);
     void toggleBulletList();
     void toggleNumberedList();
     void indentList();

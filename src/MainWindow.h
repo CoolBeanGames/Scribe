@@ -68,6 +68,9 @@ private:
     QAction*       m_actInsertTable= nullptr;
     QAction*       m_actInsertImage= nullptr;
     QAction*       m_actInsertLink = nullptr;
+    QAction*       m_actSectionBreak = nullptr;
+    QAction*       m_actPageBreak = nullptr;
+    QComboBox*     m_columnsCombo = nullptr;
 
     // Spreadsheet toolbar actions
     QAction* m_actAddRow    = nullptr;
@@ -124,6 +127,9 @@ private:
     void onInsertTable();
     void onInsertImage();
     void onInsertLink();
+    void onInsertSectionBreak();
+    void onInsertPageBreak();
+    void onColumnsChanged(int index);
 
     // Spreadsheet actions
     void onAddRow();

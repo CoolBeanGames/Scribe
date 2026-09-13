@@ -269,6 +269,22 @@ void MainWindow::setupFormatToolbar()
     m_actInsertImage->setToolTip("Insert Image");
     m_actInsertLink->setToolTip("Insert Hyperlink");
 
+    m_formatToolbar->addSeparator();
+
+    // Section break, Page break, Columns
+    m_actSectionBreak = m_formatToolbar->addAction(ScribeIcons::sectionBreakIcon(), "Section");
+    m_actSectionBreak->setToolTip("Insert Section Break (separate layout sections)");
+    m_actPageBreak = m_formatToolbar->addAction(ScribeIcons::pageBreakIcon(), "Page Break");
+    m_actPageBreak->setToolTip("Insert Page Break (start new page)");
+
+    m_columnsCombo = new QComboBox(m_formatToolbar);
+    m_columnsCombo->addItem("1 Column");
+    m_columnsCombo->addItem("2 Columns");
+    m_columnsCombo->addItem("3 Columns");
+    m_columnsCombo->setFixedWidth(95);
+    m_columnsCombo->setToolTip("Columns Layout");
+    m_formatToolbar->addWidget(m_columnsCombo);
+
     // Connect
     connect(m_fontCombo,    &QFontComboBox::currentFontChanged, this, [this](const QFont& f) {
         onFontFamilyChanged(f.family());
@@ -290,6 +306,9 @@ void MainWindow::setupFormatToolbar()
     connect(m_actInsertTable, &QAction::triggered, this, &MainWindow::onInsertTable);
     connect(m_actInsertImage, &QAction::triggered, this, &MainWindow::onInsertImage);
     connect(m_actInsertLink,  &QAction::triggered, this, &MainWindow::onInsertLink);
+    connect(m_actSectionBreak, &QAction::triggered, this, &MainWindow::onInsertSectionBreak);
+    connect(m_actPageBreak, &QAction::triggered, this, &MainWindow::onInsertPageBreak);
+    connect(m_columnsCombo, QOverload<int>::of(&QComboBox::activated), this, &MainWindow::onColumnsChanged);
 
     m_formatToolbar->setVisible(false);
 }
@@ -884,6 +903,27 @@ void MainWindow::onInsertLink()
         if (dlg.exec() == QDialog::Accepted) {
             rich->insertHyperlink(dlg.url(), dlg.displayText());
         }
+    }
+}
+
+void MainWindow::onInsertSectionBreak()
+{
+    if (auto* rich = currentRichEditor()) {
+        rich->insertSectionBreak();
+    }
+}
+
+void MainWindow::onInsertPageBreak()
+{
+    if (auto* rich = currentRichEditor()) {
+        rich->insertPageBreak();
+    }
+}
+
+void MainWindow::onColumnsChanged(int index)
+{
+    if (auto* rich = currentRichEditor()) {
+        rich->setColumns(index + 1);
     }
 }
 

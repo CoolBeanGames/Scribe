@@ -381,6 +381,68 @@ void RichTextEditor::insertHyperlink(const QString& url, const QString& text)
     cursor.insertText(displayText, fmt);
 }
 
+void RichTextEditor::insertSectionBreak()
+{
+    QTextCursor cursor = m_editor->textCursor();
+    QTextTable* table = cursor.currentTable();
+    if (table) {
+        cursor.setPosition(table->lastPosition());
+        cursor.movePosition(QTextCursor::NextBlock);
+    }
+    cursor.insertBlock();
+    cursor.insertHtml("<div style=\"margin: 20px 0;\"><hr style=\"border: none; border-top: 2px solid #8B7CFF; margin: 6px 0;\"/><div style=\"text-align: center; color: #8B7CFF; font-size: 8pt; font-weight: bold; letter-spacing: 1px;\">═══ SECTION BREAK ═══</div><hr style=\"border: none; border-top: 1px solid #262C38; margin: 6px 0;\"/></div>");
+    cursor.insertBlock();
+    QTextBlockFormat normalBf;
+    cursor.setBlockFormat(normalBf);
+    m_editor->setTextCursor(cursor);
+    setModified(true);
+}
+
+void RichTextEditor::insertPageBreak()
+{
+    QTextCursor cursor = m_editor->textCursor();
+    cursor.insertBlock();
+    QTextBlockFormat bf = cursor.blockFormat();
+    bf.setPageBreakPolicy(QTextFormat::PageBreak_AlwaysBefore);
+    cursor.setBlockFormat(bf);
+    cursor.insertHtml("<div style=\"page-break-before: always; margin: 16px 0;\"><hr style=\"border: none; border-top: 1px dashed #6A758A; margin: 6px 0;\"/><div style=\"text-align: center; color: #8A95A8; font-size: 8pt; letter-spacing: 1px;\">─── PAGE BREAK ───</div></div>");
+    cursor.insertBlock();
+    QTextBlockFormat normalBf;
+    cursor.setBlockFormat(normalBf);
+    m_editor->setTextCursor(cursor);
+    setModified(true);
+}
+
+void RichTextEditor::setColumns(int numColumns)
+{
+    if (numColumns <= 1) {
+        insertSectionBreak();
+        return;
+    }
+
+    insertSectionBreak();
+
+    QTextCursor cursor = m_editor->textCursor();
+    QTextTableFormat tf;
+    tf.setBorder(0);
+    tf.setCellPadding(12);
+    tf.setCellSpacing(0);
+    tf.setWidth(QTextLength(QTextLength::PercentageLength, 100));
+
+    QVector<QTextLength> constraints;
+    int percent = 100 / numColumns;
+    for (int i = 0; i < numColumns; ++i) {
+        constraints.append(QTextLength(QTextLength::PercentageLength, percent));
+    }
+    tf.setColumnWidthConstraints(constraints);
+
+    QTextTable* table = cursor.insertTable(1, numColumns, tf);
+    if (table && table->cellAt(0, 0).isValid()) {
+        m_editor->setTextCursor(table->cellAt(0, 0).firstCursorPosition());
+    }
+    setModified(true);
+}
+
 QTextCharFormat RichTextEditor::currentCharFormat() const
 {
     return m_editor->currentCharFormat();
@@ -528,5 +590,20 @@ void RichTextEditor::buildContextMenu(QMenu* menu)
             this->insertImage(path);
         }
     });
+
+    menu->addSeparator();
+    QAction* actSecBreak = menu->addAction("Insert Section Break");
+    connect(actSecBreak, &QAction::triggered, this, &RichTextEditor::insertSectionBreak);
+
+    QAction* actPageBreak = menu->addAction("Insert Page Break");
+    connect(actPageBreak, &QAction::triggered, this, &RichTextEditor::insertPageBreak);
+
+    QMenu* colMenu = menu->addMenu("Columns");
+    QAction* col1 = colMenu->addAction("1 Column");
+    QAction* col2 = colMenu->addAction("2 Columns");
+    QAction* col3 = colMenu->addAction("3 Columns");
+    connect(col1, &QAction::triggered, this, [this]() { setColumns(1); });
+    connect(col2, &QAction::triggered, this, [this]() { setColumns(2); });
+    connect(col3, &QAction::triggered, this, [this]() { setColumns(3); });
 }
 
