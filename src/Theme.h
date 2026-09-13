@@ -143,6 +143,25 @@ QPlainTextEdit, QTextEdit {
     line-height: 1.6;
 }
 
+/* Rich Text Page Layout */
+#RichTextWorkspace {
+    background-color: #0B0D12;
+}
+#RichTextPageEditor {
+    background-color: #12151C;
+    color: #F4F6FA;
+    border: 1px solid #262C38;
+    border-radius: 6px;
+    padding: 24px 32px;
+    margin: 0;
+    font-family: "Segoe UI", sans-serif;
+    font-size: 13px;
+}
+#RichTextFooter {
+    background-color: #0E1117;
+    border-top: 1px solid #1E232E;
+}
+
 /* Table / Spreadsheet */
 QTableWidget {
     gridline-color: #262C38;

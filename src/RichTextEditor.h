@@ -5,6 +5,8 @@
 #include <QString>
 #include <QTextCharFormat>
 
+class QLabel;
+
 // RichTextEditor: handles .rtf files using QTextEdit
 // Provides all rich text formatting operations
 class RichTextEditor : public QWidget, public EditorBase {
@@ -65,8 +67,10 @@ signals:
 
 private:
     QTextEdit* m_editor    = nullptr;
+    QLabel*    m_pageLabel = nullptr;
     QString    m_filePath;
     bool       m_modified  = false;
+    void updatePageInfo();
 
 protected:
     bool eventFilter(QObject* obj, QEvent* event) override;

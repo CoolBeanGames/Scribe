@@ -17,24 +17,91 @@
 #include <QFont>
 #include <QColor>
 #include <QImageReader>
+#include <QLabel>
+#include <QScrollBar>
+#include <QPainter>
+#include <cmath>
+
+class PageTextEdit : public QTextEdit {
+public:
+    explicit PageTextEdit(QWidget* parent = nullptr)
+        : QTextEdit(parent) {}
+
+protected:
+    void paintEvent(QPaintEvent* event) override
+    {
+        QTextEdit::paintEvent(event);
+
+        QPainter p(viewport());
+        p.setRenderHint(QPainter::Antialiasing, false);
+
+        const int pageH = 1056;
+        int scrollY = verticalScrollBar()->value();
+        int viewH = viewport()->height();
+        int viewW = viewport()->width();
+
+        int docH = (int)document()->size().height();
+        int totalPages = qMax(1, (int)std::ceil(docH / (double)pageH));
+
+        for (int page = 1; page < totalPages; ++page) {
+            int pageY = page * pageH - scrollY;
+            if (pageY >= 0 && pageY <= viewH) {
+                p.setPen(QPen(QColor("#3A4252"), 1, Qt::DashLine));
+                p.drawLine(20, pageY, viewW - 20, pageY);
+
+                p.setFont(QFont("Segoe UI", 8, QFont::DemiBold));
+                p.setPen(QColor("#8A95A8"));
+                QString tag = QString("Page %1").arg(page + 1);
+                p.drawText(QRect(viewW - 90, pageY - 16, 70, 14), Qt::AlignRight | Qt::AlignVCenter, tag);
+            }
+        }
+    }
+};
 
 RichTextEditor::RichTextEditor(QWidget* parent)
     : QWidget(parent)
 {
-    auto* layout = new QVBoxLayout(this);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(0);
+    auto* mainLayout = new QVBoxLayout(this);
+    mainLayout->setContentsMargins(0, 0, 0, 0);
+    mainLayout->setSpacing(0);
 
-    m_editor = new QTextEdit(this);
+    // Page workspace container (near-black background)
+    QWidget* workspace = new QWidget(this);
+    workspace->setObjectName("RichTextWorkspace");
+    auto* wsLayout = new QHBoxLayout(workspace);
+    wsLayout->setContentsMargins(16, 16, 16, 8);
+    wsLayout->setAlignment(Qt::AlignHCenter);
+
+    m_editor = new PageTextEdit(workspace);
+    m_editor->setObjectName("RichTextPageEditor");
     m_editor->setReadOnly(false);
     m_editor->setAcceptRichText(true);
+    m_editor->setFixedWidth(816); // Standard Letter width at 96 DPI
+
+    // Standard print page size: Letter (816 x 1056 px) at 96 DPI
+    QSizeF pageSize(816, 1056);
+    m_editor->document()->setPageSize(pageSize);
+    m_editor->document()->setDocumentMargin(72); // 0.75 in print margin
 
     // Set default font
     QFont defaultFont("Segoe UI", 12);
     m_editor->setFont(defaultFont);
     m_editor->document()->setDefaultFont(defaultFont);
 
-    layout->addWidget(m_editor);
+    wsLayout->addWidget(m_editor);
+    mainLayout->addWidget(workspace, 1);
+
+    // Page footer status bar
+    QWidget* footerBar = new QWidget(this);
+    footerBar->setObjectName("RichTextFooter");
+    auto* footerLayout = new QHBoxLayout(footerBar);
+    footerLayout->setContentsMargins(16, 4, 16, 4);
+    m_pageLabel = new QLabel("Page 1 of 1  •  Standard Letter (8.5\" × 11\")", footerBar);
+    m_pageLabel->setStyleSheet("color: #8A95A8; font-size: 11px; font-weight: 500;");
+    footerLayout->addWidget(m_pageLabel);
+    footerLayout->addStretch();
+    mainLayout->addWidget(footerBar);
+
     m_editor->installEventFilter(this);
     m_editor->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_editor, &QWidget::customContextMenuRequested, this, &RichTextEditor::onCustomContextMenu);
@@ -43,7 +110,12 @@ RichTextEditor::RichTextEditor(QWidget* parent)
     connect(m_editor->document(), &QTextDocument::modificationChanged,
             this, &RichTextEditor::onDocumentModified);
     connect(m_editor, &QTextEdit::cursorPositionChanged,
-            this, &RichTextEditor::cursorPositionChanged);
+            this, [this]() {
+                updatePageInfo();
+                emit cursorPositionChanged();
+            });
+    connect(m_editor->document(), &QTextDocument::contentsChanged,
+            this, &RichTextEditor::updatePageInfo);
 }
 
 bool RichTextEditor::isModified() const
@@ -605,5 +677,17 @@ void RichTextEditor::buildContextMenu(QMenu* menu)
     connect(col1, &QAction::triggered, this, [this]() { setColumns(1); });
     connect(col2, &QAction::triggered, this, [this]() { setColumns(2); });
     connect(col3, &QAction::triggered, this, [this]() { setColumns(3); });
+}
+
+void RichTextEditor::updatePageInfo()
+{
+    if (!m_pageLabel || !m_editor) return;
+    int scrollY = m_editor->verticalScrollBar() ? m_editor->verticalScrollBar()->value() : 0;
+    int cursorY = m_editor->cursorRect().top() + scrollY;
+    const int pageH = 1056;
+    int curPage = qMax(1, (cursorY / pageH) + 1);
+    int docH = (int)m_editor->document()->size().height();
+    int totalPages = qMax(1, (int)std::ceil(docH / (double)pageH));
+    m_pageLabel->setText(QString("Page %1 of %2  •  Standard Letter (8.5\" × 11\")").arg(curPage).arg(totalPages));
 }
 
