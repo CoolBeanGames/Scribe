@@ -487,6 +487,12 @@ bool SpreadsheetEditor::eventFilter(QObject* obj, QEvent* event) {
                     }
                     int cursor = m_formulaBar->cursorPosition();
                     QString cur = m_formulaBar->text();
+                    if (cursor > 0) {
+                        QChar prev = cur[cursor - 1];
+                        if (prev.isLetterOrNumber() || prev == ')') {
+                            ref = "," + ref;
+                        }
+                    }
                     QString next = cur.left(cursor) + ref + cur.mid(cursor);
                     m_formulaBar->setText(next);
                     m_formulaBar->setCursorPosition(cursor + ref.length());
