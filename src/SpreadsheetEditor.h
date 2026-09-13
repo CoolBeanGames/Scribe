@@ -78,6 +78,8 @@ private:
     QString getCellName(int r, int c) const;
     bool parseCellCoord(const QString& ref, int& row, int& col) const;
     QList<double> resolveValues(const QString& token) const;
+    bool evaluateCondition(const QString& condStr) const;
+    QList<QPoint> resolveCellCoords(const QStringList& cellTokens) const;
     double evaluateExpression(const QString& expr) const;
 
 private slots:

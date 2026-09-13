@@ -535,8 +535,15 @@ void SpreadsheetEditor::exitFormulaMode(bool apply) {
             item = new QTableWidgetItem();
             m_table->setItem(m_formulaRow, m_formulaCol, item);
         }
-        double val = evaluateExpression(m_formulaBar->text());
-        item->setText(QString::number(val));
+        QString fText = m_formulaBar->text().trimmed();
+        QString upper = fText.toUpper();
+        if (upper.startsWith("=BOLD(") || upper.startsWith("=BG_COLOR(")) {
+            double val = evaluateExpression(fText);
+            item->setText(val > 0.5 ? "TRUE" : "FALSE");
+        } else {
+            double val = evaluateExpression(fText);
+            item->setText(QString::number(val));
+        }
         setModified(true);
     }
     m_inFormulaMode = false;
@@ -633,6 +640,66 @@ QList<double> SpreadsheetEditor::resolveValues(const QString& token) const
     double evalVal = evaluateExpression(trimmed.startsWith("=") ? trimmed : ("=" + trimmed));
     values.append(evalVal);
     return values;
+}
+
+bool SpreadsheetEditor::evaluateCondition(const QString& condStr) const
+{
+    QString s = condStr.trimmed();
+    if (s.startsWith("=")) s = s.mid(1).trimmed();
+
+    QStringList compOps = {">=", "<=", "==", "!=", ">", "<", "="};
+    for (const QString& op : compOps) {
+        int idx = s.indexOf(op);
+        if (idx > 0) {
+            QString leftStr = s.left(idx).trimmed();
+            QString rightStr = s.mid(idx + op.length()).trimmed();
+            double left = evaluateExpression("=" + leftStr);
+            double right = evaluateExpression("=" + rightStr);
+
+            if (op == ">=") return left >= right;
+            if (op == "<=") return left <= right;
+            if (op == "==" || op == "=") return std::abs(left - right) < 1e-9;
+            if (op == "!=") return std::abs(left - right) >= 1e-9;
+            if (op == ">") return left > right;
+            if (op == "<") return left < right;
+        }
+    }
+
+    double val = evaluateExpression("=" + s);
+    return std::abs(val) > 1e-9;
+}
+
+QList<QPoint> SpreadsheetEditor::resolveCellCoords(const QStringList& cellTokens) const
+{
+    QList<QPoint> coords;
+    for (const QString& tok : cellTokens) {
+        QString t = tok.trimmed();
+        if (t.contains(':')) {
+            QStringList parts = t.split(':');
+            if (parts.size() == 2) {
+                int r1, c1, r2, c2;
+                if (parseCellCoord(parts[0], r1, c1) && parseCellCoord(parts[1], r2, c2)) {
+                    int topRow = qMin(r1, r2);
+                    int bottomRow = qMax(r1, r2);
+                    int leftCol = qMin(c1, c2);
+                    int rightCol = qMax(c1, c2);
+                    for (int r = topRow; r <= bottomRow && r < m_table->rowCount(); ++r) {
+                        for (int c = leftCol; c <= rightCol && c < m_table->columnCount(); ++c) {
+                            coords.append(QPoint(r, c));
+                        }
+                    }
+                }
+            }
+        } else {
+            int r, c;
+            if (parseCellCoord(t, r, c)) {
+                if (r < m_table->rowCount() && c < m_table->columnCount()) {
+                    coords.append(QPoint(r, c));
+                }
+            }
+        }
+    }
+    return coords;
 }
 
 static QStringList splitArgs(const QString& str)
@@ -771,6 +838,58 @@ double SpreadsheetEditor::evaluateExpression(const QString& expr) const {
         if (!args.isEmpty()) {
             double val = evaluateExpression("=" + args[0]);
             return (val >= 0) ? std::sqrt(val) : 0;
+        }
+        return 0;
+    }
+
+    // Conditional formulas: BG_COLOR(condition, cells) and BOLD(condition, cells)
+    if (upper.startsWith("BG_COLOR(") && exp.endsWith(")")) {
+        QString inner = exp.mid(9, exp.length() - 10);
+        QStringList args = splitArgs(inner);
+        if (args.size() >= 2) {
+            bool cond = evaluateCondition(args[0]);
+            QStringList cellTokens = args.mid(1);
+            QList<QPoint> targetCells = resolveCellCoords(cellTokens);
+            QColor highlightColor(139, 124, 255, 160);
+            for (const QPoint& pt : targetCells) {
+                int r = pt.x();
+                int c = pt.y();
+                QTableWidgetItem* it = m_table->item(r, c);
+                if (!it) {
+                    it = new QTableWidgetItem();
+                    m_table->setItem(r, c, it);
+                }
+                if (cond) {
+                    it->setBackground(highlightColor);
+                } else {
+                    it->setBackground(Qt::transparent);
+                }
+            }
+            return cond ? 1.0 : 0.0;
+        }
+        return 0;
+    }
+
+    if (upper.startsWith("BOLD(") && exp.endsWith(")")) {
+        QString inner = exp.mid(5, exp.length() - 6);
+        QStringList args = splitArgs(inner);
+        if (args.size() >= 2) {
+            bool cond = evaluateCondition(args[0]);
+            QStringList cellTokens = args.mid(1);
+            QList<QPoint> targetCells = resolveCellCoords(cellTokens);
+            for (const QPoint& pt : targetCells) {
+                int r = pt.x();
+                int c = pt.y();
+                QTableWidgetItem* it = m_table->item(r, c);
+                if (!it) {
+                    it = new QTableWidgetItem();
+                    m_table->setItem(r, c, it);
+                }
+                QFont f = it->font();
+                f.setBold(cond);
+                it->setFont(f);
+            }
+            return cond ? 1.0 : 0.0;
         }
         return 0;
     }
