@@ -76,6 +76,8 @@ private:
     void updateColumnHeaders();
     void ensureMinSize(int rows, int cols);
     QString getCellName(int r, int c) const;
+    bool parseCellCoord(const QString& ref, int& row, int& col) const;
+    QList<double> resolveValues(const QString& token) const;
     double evaluateExpression(const QString& expr) const;
 
 private slots:

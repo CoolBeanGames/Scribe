@@ -1,4 +1,5 @@
 #include <QMenu>
+#include <cmath>
 #include "SpreadsheetEditor.h"
 #include <QLineEdit>
 #include <QHeaderView>
@@ -546,41 +547,251 @@ void SpreadsheetEditor::exitFormulaMode(bool apply) {
     m_table->setFocus();
 }
 
-double SpreadsheetEditor::evaluateExpression(const QString& expr) const {
-    if (!expr.startsWith("=")) return 0;
-    QString exp = expr.mid(1);
-    
-    if (exp.contains("+")) {
-        QStringList parts = exp.split("+");
-        return evaluateExpression("=" + parts[0]) + evaluateExpression("=" + parts[1]);
+bool SpreadsheetEditor::parseCellCoord(const QString& ref, int& row, int& col) const
+{
+    QString trimmed = ref.trimmed().toUpper();
+    int letterEnd = 0;
+    while (letterEnd < trimmed.length() && trimmed[letterEnd].isLetter()) {
+        letterEnd++;
     }
-    if (exp.contains("-")) {
-        QStringList parts = exp.split("-");
-        return evaluateExpression("=" + parts[0]) - evaluateExpression("=" + parts[1]);
-    }
-    if (exp.contains("*")) {
-        QStringList parts = exp.split("*");
-        return evaluateExpression("=" + parts[0]) * evaluateExpression("=" + parts[1]);
-    }
-    if (exp.contains("/")) {
-        QStringList parts = exp.split("/");
-        double denom = evaluateExpression("=" + parts[1]);
-        return denom == 0 ? 0 : evaluateExpression("=" + parts[0]) / denom;
-    }
-    
-    bool ok;
-    double val = exp.toDouble(&ok);
-    if (ok) return val;
+    if (letterEnd == 0 || letterEnd == trimmed.length()) return false;
+    QString colStr = trimmed.left(letterEnd);
+    QString rowStr = trimmed.mid(letterEnd);
+    bool ok = false;
+    int r = rowStr.toInt(&ok) - 1;
+    if (!ok || r < 0) return false;
 
-    for (int r = 0; r < m_table->rowCount(); ++r) {
-        for (int c = 0; c < m_table->columnCount(); ++c) {
-            if (getCellName(r, c) == exp) {
-                QTableWidgetItem* item = m_table->item(r, c);
-                if (item) return item->text().toDouble();
-                return 0;
+    int c = 0;
+    for (int i = 0; i < colStr.length(); ++i) {
+        c = c * 26 + (colStr[i].toLatin1() - 'A' + 1);
+    }
+    c -= 1;
+    if (c < 0) return false;
+
+    row = r;
+    col = c;
+    return true;
+}
+
+QList<double> SpreadsheetEditor::resolveValues(const QString& token) const
+{
+    QList<double> values;
+    QString trimmed = token.trimmed();
+    if (trimmed.isEmpty()) return values;
+
+    // Range like A1:B5
+    if (trimmed.contains(':')) {
+        QStringList parts = trimmed.split(':');
+        if (parts.size() == 2) {
+            int r1, c1, r2, c2;
+            if (parseCellCoord(parts[0], r1, c1) && parseCellCoord(parts[1], r2, c2)) {
+                int topRow = qMin(r1, r2);
+                int bottomRow = qMax(r1, r2);
+                int leftCol = qMin(c1, c2);
+                int rightCol = qMax(c1, c2);
+                for (int r = topRow; r <= bottomRow && r < m_table->rowCount(); ++r) {
+                    for (int c = leftCol; c <= rightCol && c < m_table->columnCount(); ++c) {
+                        QTableWidgetItem* item = m_table->item(r, c);
+                        if (item && !item->text().trimmed().isEmpty()) {
+                            bool ok = false;
+                            double v = item->text().trimmed().toDouble(&ok);
+                            values.append(ok ? v : 0.0);
+                        } else {
+                            values.append(0.0);
+                        }
+                    }
+                }
+                return values;
             }
         }
     }
+
+    // Single cell like A1
+    int r, c;
+    if (parseCellCoord(trimmed, r, c)) {
+        if (r < m_table->rowCount() && c < m_table->columnCount()) {
+            QTableWidgetItem* item = m_table->item(r, c);
+            if (item && !item->text().trimmed().isEmpty()) {
+                bool ok = false;
+                double v = item->text().trimmed().toDouble(&ok);
+                values.append(ok ? v : 0.0);
+            } else {
+                values.append(0.0);
+            }
+        }
+        return values;
+    }
+
+    // Direct number
+    bool ok = false;
+    double directVal = trimmed.toDouble(&ok);
+    if (ok) {
+        values.append(directVal);
+        return values;
+    }
+
+    double evalVal = evaluateExpression(trimmed.startsWith("=") ? trimmed : ("=" + trimmed));
+    values.append(evalVal);
+    return values;
+}
+
+static QStringList splitArgs(const QString& str)
+{
+    QStringList args;
+    QString current;
+    int depth = 0;
+    for (int i = 0; i < str.length(); ++i) {
+        QChar c = str[i];
+        if (c == '(') depth++;
+        else if (c == ')') depth--;
+        else if (c == ',' && depth == 0) {
+            args.append(current.trimmed());
+            current.clear();
+            continue;
+        }
+        current += c;
+    }
+    if (!current.trimmed().isEmpty()) {
+        args.append(current.trimmed());
+    }
+    return args;
+}
+
+static int findOperatorOutsideParens(const QString& str, const QStringList& ops)
+{
+    int depth = 0;
+    for (int i = str.length() - 1; i >= 0; --i) {
+        QChar c = str[i];
+        if (c == ')') depth++;
+        else if (c == '(') depth--;
+        else if (depth == 0) {
+            for (const QString& op : ops) {
+                if (str.mid(i, op.length()) == op) {
+                    if (op == "-" && (i == 0 || str[i-1] == '+' || str[i-1] == '-' || str[i-1] == '*' || str[i-1] == '/' || str[i-1] == '(' || str[i-1] == ',')) {
+                        continue;
+                    }
+                    return i;
+                }
+            }
+        }
+    }
+    return -1;
+}
+
+double SpreadsheetEditor::evaluateExpression(const QString& expr) const {
+    QString exp = expr.trimmed();
+    if (exp.startsWith("=")) {
+        exp = exp.mid(1).trimmed();
+    }
+    if (exp.isEmpty()) return 0;
+
+    // Check operators outside parens (+ and - first for lower precedence)
+    int addSubIdx = findOperatorOutsideParens(exp, {"+", "-"});
+    if (addSubIdx > 0) {
+        QChar op = exp[addSubIdx];
+        QString left = exp.left(addSubIdx).trimmed();
+        QString right = exp.mid(addSubIdx + 1).trimmed();
+        if (op == '+') {
+            return evaluateExpression("=" + left) + evaluateExpression("=" + right);
+        } else {
+            return evaluateExpression("=" + left) - evaluateExpression("=" + right);
+        }
+    }
+
+    // Next * and /
+    int mulDivIdx = findOperatorOutsideParens(exp, {"*", "/"});
+    if (mulDivIdx > 0) {
+        QChar op = exp[mulDivIdx];
+        QString left = exp.left(mulDivIdx).trimmed();
+        QString right = exp.mid(mulDivIdx + 1).trimmed();
+        if (op == '*') {
+            return evaluateExpression("=" + left) * evaluateExpression("=" + right);
+        } else {
+            double denom = evaluateExpression("=" + right);
+            return (denom == 0) ? 0 : evaluateExpression("=" + left) / denom;
+        }
+    }
+
+    // Outer parentheses
+    if (exp.startsWith("(") && exp.endsWith(")")) {
+        int depth = 0;
+        bool allEnclosed = true;
+        for (int i = 0; i < exp.length() - 1; ++i) {
+            if (exp[i] == '(') depth++;
+            else if (exp[i] == ')') depth--;
+            if (depth == 0) { allEnclosed = false; break; }
+        }
+        if (allEnclosed) {
+            return evaluateExpression("=" + exp.mid(1, exp.length() - 2));
+        }
+    }
+
+    // Functions: SUM, AVG, EXP, SQRT
+    QString upper = exp.toUpper();
+    if (upper.startsWith("SUM(") && exp.endsWith(")")) {
+        QString inner = exp.mid(4, exp.length() - 5);
+        QStringList args = splitArgs(inner);
+        double total = 0;
+        for (const QString& a : args) {
+            QList<double> vals = resolveValues(a);
+            for (double v : vals) total += v;
+        }
+        return total;
+    }
+    if (upper.startsWith("AVG(") && exp.endsWith(")")) {
+        QString inner = exp.mid(4, exp.length() - 5);
+        QStringList args = splitArgs(inner);
+        double total = 0;
+        int count = 0;
+        for (const QString& a : args) {
+            QList<double> vals = resolveValues(a);
+            for (double v : vals) {
+                total += v;
+                count++;
+            }
+        }
+        return (count == 0) ? 0 : (total / count);
+    }
+    if (upper.startsWith("EXP(") && exp.endsWith(")")) {
+        QString inner = exp.mid(4, exp.length() - 5);
+        QStringList args = splitArgs(inner);
+        if (args.size() >= 2) {
+            double base = evaluateExpression("=" + args[0]);
+            double exponent = evaluateExpression("=" + args[1]);
+            return std::pow(base, exponent);
+        } else if (args.size() == 1) {
+            double val = evaluateExpression("=" + args[0]);
+            return std::exp(val);
+        }
+        return 0;
+    }
+    if (upper.startsWith("SQRT(") && exp.endsWith(")")) {
+        QString inner = exp.mid(5, exp.length() - 6);
+        QStringList args = splitArgs(inner);
+        if (!args.isEmpty()) {
+            double val = evaluateExpression("=" + args[0]);
+            return (val >= 0) ? std::sqrt(val) : 0;
+        }
+        return 0;
+    }
+
+    // Direct number
+    bool ok = false;
+    double val = exp.toDouble(&ok);
+    if (ok) return val;
+
+    // Single cell coordinate
+    int r, c;
+    if (parseCellCoord(exp, r, c)) {
+        if (r < m_table->rowCount() && c < m_table->columnCount()) {
+            QTableWidgetItem* item = m_table->item(r, c);
+            if (item) {
+                return item->text().trimmed().toDouble();
+            }
+        }
+        return 0;
+    }
+
     return 0;
 }
 
