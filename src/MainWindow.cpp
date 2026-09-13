@@ -18,10 +18,12 @@
 #include <QFileInfo>
 #include <QFontComboBox>
 #include <QColorDialog>
-#include <QLabel>
 #include <QKeySequence>
 #include <QSizePolicy>
 #include <QColor>
+#include <QPrinter>
+#include <QPrintDialog>
+#include <QTextDocument>
 
 // ---------------------------------------------------------------------------
 // Construction
@@ -112,6 +114,8 @@ void MainWindow::setupMenuBar()
     m_actSave->setShortcut(QKeySequence::Save);
     m_actSaveAs = fileMenu->addAction("Save &As...");
     m_actSaveAs->setShortcut(QKeySequence("Ctrl+Shift+S"));
+    m_actPrint  = fileMenu->addAction("&Print...");
+    m_actPrint->setShortcut(QKeySequence::Print);
 
     fileMenu->addSeparator();
     m_actExit = fileMenu->addAction("E&xit");
@@ -135,6 +139,7 @@ void MainWindow::setupMenuBar()
     connect(m_actOpen, &QAction::triggered, this, qOverload<>(&MainWindow::openFile));
     connect(m_actSave,   &QAction::triggered, this, &MainWindow::saveCurrentFile);
     connect(m_actSaveAs, &QAction::triggered, this, &MainWindow::saveCurrentFileAs);
+    connect(m_actPrint,  &QAction::triggered, this, &MainWindow::onPrint);
     connect(m_actExit,   &QAction::triggered, this, &QMainWindow::close);
     connect(m_actUndo,   &QAction::triggered, this, &MainWindow::onUndoAction);
     connect(m_actRedo,   &QAction::triggered, this, &MainWindow::onRedoAction);
@@ -157,17 +162,20 @@ void MainWindow::setupMainToolbar()
 
     QAction* open = m_mainToolbar->addAction(ScribeIcons::openIcon(), "Open");
     QAction* save = m_mainToolbar->addAction(ScribeIcons::saveIcon(), "Save");
+    m_actPrintToolbar = m_mainToolbar->addAction(ScribeIcons::printIcon(), "Print");
     m_mainToolbar->addSeparator();
     QAction* undo = m_mainToolbar->addAction(ScribeIcons::undoIcon(), "Undo");
     QAction* redo = m_mainToolbar->addAction(ScribeIcons::redoIcon(), "Redo");
 
     open->setToolTip("Open File (Ctrl+O)");
     save->setToolTip("Save (Ctrl+S)");
+    m_actPrintToolbar->setToolTip("Print (Ctrl+P)");
     undo->setToolTip("Undo (Ctrl+Z)");
     redo->setToolTip("Redo (Ctrl+Y)");
 
     connect(open, &QAction::triggered, this, qOverload<>(&MainWindow::openFile));
     connect(save, &QAction::triggered, this, &MainWindow::saveCurrentFile);
+    connect(m_actPrintToolbar, &QAction::triggered, this, &MainWindow::onPrint);
     connect(undo, &QAction::triggered, this, &MainWindow::onUndoAction);
     connect(redo, &QAction::triggered, this, &MainWindow::onRedoAction);
 }
@@ -563,6 +571,76 @@ void MainWindow::saveCurrentFileAs()
     }
 }
 
+void MainWindow::onPrint()
+{
+    EditorBase* editor = currentEditor();
+    if (!editor) return;
+
+    if (editor->documentType() == DocumentType::Code) {
+        QMessageBox::information(this, "Print", "Printing is not supported for code files.");
+        return;
+    }
+
+    QPrinter printer(QPrinter::HighResolution);
+    printer.setDocName(editor->displayName());
+
+    QPrintDialog dialog(&printer, this);
+    dialog.setWindowTitle("Print - " + editor->displayName());
+    if (dialog.exec() != QDialog::Accepted) {
+        return;
+    }
+
+    if (auto* rich = currentRichEditor()) {
+        rich->textEdit()->document()->print(&printer);
+    } else if (auto* plain = currentPlainEditor()) {
+        plain->document()->print(&printer);
+    } else if (auto* sheet = currentSheetEditor()) {
+        QTableWidget* table = sheet->tableWidget();
+        QString html = "<!DOCTYPE html><html><head><style>"
+                       "body { font-family: sans-serif; font-size: 10pt; margin: 20px; }"
+                       "table { border-collapse: collapse; width: 100%; }"
+                       "th, td { border: 1px solid #333333; padding: 6px 8px; text-align: left; }"
+                       "th { background-color: #f0f0f0; font-weight: bold; }"
+                       "</style></head><body>";
+        html += "<h3>" + sheet->displayName().toHtmlEscaped() + "</h3>";
+        html += "<table><thead><tr><th></th>";
+        for (int c = 0; c < table->columnCount(); ++c) {
+            QString colName = table->horizontalHeaderItem(c) ? table->horizontalHeaderItem(c)->text() : QString(QChar('A' + c));
+            html += "<th>" + colName.toHtmlEscaped() + "</th>";
+        }
+        html += "</tr></thead><tbody>";
+        for (int r = 0; r < table->rowCount(); ++r) {
+            html += "<tr>";
+            QString rowName = table->verticalHeaderItem(r) ? table->verticalHeaderItem(r)->text() : QString::number(r + 1);
+            html += "<th>" + rowName.toHtmlEscaped() + "</th>";
+            for (int c = 0; c < table->columnCount(); ++c) {
+                auto* item = table->item(r, c);
+                QString text = item ? item->text() : "";
+                QString style = "";
+                if (item) {
+                    QColor bg = item->background().color();
+                    if (bg.isValid() && bg.alpha() > 0 && bg != Qt::transparent) {
+                        style += QString("background-color: %1;").arg(bg.name());
+                    }
+                    if (item->font().bold()) {
+                        style += "font-weight: bold;";
+                    }
+                }
+                if (!style.isEmpty()) {
+                    html += QString("<td style=\"%1\">%2</td>").arg(style, text.toHtmlEscaped());
+                } else {
+                    html += "<td>" + text.toHtmlEscaped() + "</td>";
+                }
+            }
+            html += "</tr>";
+        }
+        html += "</tbody></table></body></html>";
+        QTextDocument doc;
+        doc.setHtml(html);
+        doc.print(&printer);
+    }
+}
+
 void MainWindow::closeEditor(EditorBase* editor)
 {
     if (!editor) return;
@@ -605,6 +683,8 @@ void MainWindow::updateToolbarsForEditor(EditorBase* editor)
         m_sheetToolbar->setVisible(false);
         m_actSave->setEnabled(false);
         m_actSaveAs->setEnabled(false);
+        if (m_actPrint) m_actPrint->setEnabled(false);
+        if (m_actPrintToolbar) m_actPrintToolbar->setEnabled(false);
         m_actUndo->setEnabled(false);
         m_actRedo->setEnabled(false);
         return;
@@ -616,6 +696,10 @@ void MainWindow::updateToolbarsForEditor(EditorBase* editor)
     bool isRich  = (editor->documentType() == DocumentType::RichText);
     bool isSheet = (editor->documentType() == DocumentType::Spreadsheet);
     bool isCode = (editor->documentType() == DocumentType::Code);
+
+    bool canPrint = !isCode;
+    if (m_actPrint) m_actPrint->setEnabled(canPrint);
+    if (m_actPrintToolbar) m_actPrintToolbar->setEnabled(canPrint);
 
     m_formatToolbar->setVisible(isRich);
     m_sheetToolbar->setVisible(isSheet);

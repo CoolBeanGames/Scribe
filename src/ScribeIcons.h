@@ -49,6 +49,20 @@ inline QIcon saveIcon() {
     });
 }
 
+inline QIcon printIcon() {
+    return makeIcon([](QPainter& p, int w, int h) {
+        // Top paper sheet
+        p.drawRect(6, 3, 8, 4);
+        // Printer body
+        p.drawRoundedRect(3, 7, 14, 6, 1.5, 1.5);
+        // Bottom output paper
+        p.drawRect(5, 11, 10, 6);
+        // Text lines on output paper
+        p.drawLine(7, 13, 13, 13);
+        p.drawLine(7, 15, 11, 15);
+    });
+}
+
 inline QIcon undoIcon() {
     return makeIcon([](QPainter& p, int w, int h) {
         // Undo curved arrow
