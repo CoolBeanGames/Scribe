@@ -1,0 +1,6 @@
+﻿<!DOCTYPE RCC><RCC version="1.0">
+<qresource prefix="/">
+    <file>scribe.png</file>
+    <file>scribe.ico</file>
+</qresource>
+</RCC>

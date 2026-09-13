@@ -47,11 +47,16 @@ set(SOURCES
     src/InsertTableDialog.h
     src/InsertLinkDialog.cpp
     src/InsertLinkDialog.h
+    scribe.qrc
+    scribe.rc
 )
 
 add_executable(Scribe WIN32 ${SOURCES})
 
 target_link_libraries(Scribe PRIVATE ${QT_LIBS})
+if(WIN32)
+    target_link_libraries(Scribe PRIVATE shell32)
+endif()
 
 target_include_directories(Scribe PRIVATE src)
 
