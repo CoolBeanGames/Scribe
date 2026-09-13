@@ -996,6 +996,12 @@ void MainWindow::syncFormatToolbar()
     m_actAlignCenter->setChecked(align == Qt::AlignHCenter);
     m_actAlignRight->setChecked(align == Qt::AlignRight || align == Qt::AlignTrailing);
     m_actAlignJust->setChecked(align == Qt::AlignJustify);
+
+    // Columns
+    m_columnsCombo->blockSignals(true);
+    int cols = rich->currentColumnCount();
+    m_columnsCombo->setCurrentIndex(qBound(0, cols - 1, m_columnsCombo->count() - 1));
+    m_columnsCombo->blockSignals(false);
 }
 
 // ---------------------------------------------------------------------------

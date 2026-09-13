@@ -11,6 +11,7 @@
 #include <QTextTable>
 #include <QTextImageFormat>
 #include <QTextDocument>
+#include <QTextDocumentFragment>
 #include <QTextCharFormat>
 #include <QTextBlockFormat>
 #include <QTextList>
@@ -41,7 +42,7 @@ protected:
         int viewW = viewport()->width();
 
         int docH = (int)document()->size().height();
-        int totalPages = qMax(1, (int)std::ceil(docH / (double)pageH));
+        int totalPages = qMax(1, qMax(document()->pageCount(), (int)std::ceil(docH / (double)pageH)));
 
         for (int page = 1; page < totalPages; ++page) {
             int pageY = page * pageH - scrollY;
@@ -458,8 +459,13 @@ void RichTextEditor::insertSectionBreak()
     QTextCursor cursor = m_editor->textCursor();
     QTextTable* table = cursor.currentTable();
     if (table) {
-        cursor.setPosition(table->lastPosition());
-        cursor.movePosition(QTextCursor::NextBlock);
+        int pos = table->lastPosition() + 1;
+        if (pos < m_editor->document()->characterCount()) {
+            cursor.setPosition(pos);
+        } else {
+            cursor.movePosition(QTextCursor::End);
+            cursor.insertBlock();
+        }
     }
     cursor.insertBlock();
     cursor.insertHtml("<div style=\"margin: 20px 0;\"><hr style=\"border: none; border-top: 2px solid #8B7CFF; margin: 6px 0;\"/><div style=\"text-align: center; color: #8B7CFF; font-size: 8pt; font-weight: bold; letter-spacing: 1px;\">═══ SECTION BREAK ═══</div><hr style=\"border: none; border-top: 1px solid #262C38; margin: 6px 0;\"/></div>");
@@ -487,14 +493,24 @@ void RichTextEditor::insertPageBreak()
 
 void RichTextEditor::setColumns(int numColumns)
 {
-    if (numColumns <= 1) {
-        insertSectionBreak();
-        return;
+    QString selectedHtml;
+    QTextCursor cursor = m_editor->textCursor();
+    if (cursor.hasSelection()) {
+        selectedHtml = cursor.selection().toHtml();
+        cursor.removeSelectedText();
+        m_editor->setTextCursor(cursor);
     }
 
     insertSectionBreak();
 
-    QTextCursor cursor = m_editor->textCursor();
+    if (numColumns <= 1) {
+        if (!selectedHtml.isEmpty()) {
+            m_editor->textCursor().insertHtml(selectedHtml);
+        }
+        return;
+    }
+
+    cursor = m_editor->textCursor();
     QTextTableFormat tf;
     tf.setBorder(0);
     tf.setCellPadding(12);
@@ -510,9 +526,23 @@ void RichTextEditor::setColumns(int numColumns)
 
     QTextTable* table = cursor.insertTable(1, numColumns, tf);
     if (table && table->cellAt(0, 0).isValid()) {
-        m_editor->setTextCursor(table->cellAt(0, 0).firstCursorPosition());
+        QTextCursor cellCursor = table->cellAt(0, 0).firstCursorPosition();
+        if (!selectedHtml.isEmpty()) {
+            cellCursor.insertHtml(selectedHtml);
+        }
+        m_editor->setTextCursor(cellCursor);
     }
     setModified(true);
+}
+
+int RichTextEditor::currentColumnCount() const
+{
+    QTextCursor cursor = m_editor->textCursor();
+    QTextTable* table = cursor.currentTable();
+    if (table && table->columns() > 1) {
+        return table->columns();
+    }
+    return 1;
 }
 
 QTextCharFormat RichTextEditor::currentCharFormat() const
@@ -687,7 +717,7 @@ void RichTextEditor::updatePageInfo()
     const int pageH = 1056;
     int curPage = qMax(1, (cursorY / pageH) + 1);
     int docH = (int)m_editor->document()->size().height();
-    int totalPages = qMax(1, (int)std::ceil(docH / (double)pageH));
+    int totalPages = qMax(1, qMax(m_editor->document()->pageCount(), (int)std::ceil(docH / (double)pageH)));
     m_pageLabel->setText(QString("Page %1 of %2  •  Standard Letter (8.5\" × 11\")").arg(curPage).arg(totalPages));
 }
 

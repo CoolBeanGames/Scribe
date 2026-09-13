@@ -56,6 +56,7 @@ public:
     // Query current char format
     QTextCharFormat currentCharFormat() const;
     Qt::Alignment currentAlignment() const;
+    int currentColumnCount() const;
 
     // Access the underlying QTextEdit for toolbar connections
     QTextEdit* textEdit() const { return m_editor; }
