@@ -275,7 +275,8 @@ void MainWindow::setupFormatToolbar()
     m_actSectionBreak = m_formatToolbar->addAction(ScribeIcons::sectionBreakIcon(), "Section");
     m_actSectionBreak->setToolTip("Insert Section Break (separate layout sections)");
     m_actPageBreak = m_formatToolbar->addAction(ScribeIcons::pageBreakIcon(), "Page Break");
-    m_actPageBreak->setToolTip("Insert Page Break (start new page)");
+    m_actPageBreak->setShortcut(QKeySequence("Ctrl+Return"));
+    m_actPageBreak->setToolTip("Insert Page Break (Ctrl+Enter)");
 
     m_columnsCombo = new QComboBox(m_formatToolbar);
     m_columnsCombo->addItem("1 Column");

@@ -289,6 +289,10 @@ bool RichTextEditor::eventFilter(QObject* obj, QEvent* event)
                 return true;
             }
         } else if (keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter) {
+            if (keyEvent->modifiers() & Qt::ControlModifier) {
+                insertPageBreak();
+                return true;
+            }
             QTextCursor cursor = m_editor->textCursor();
             if (cursor.currentList()) {
                 QTextCursor blockCursor = cursor;
@@ -479,16 +483,24 @@ void RichTextEditor::insertSectionBreak()
 void RichTextEditor::insertPageBreak()
 {
     QTextCursor cursor = m_editor->textCursor();
+    QTextTable* table = cursor.currentTable();
+    if (table) {
+        int pos = table->lastPosition() + 1;
+        if (pos < m_editor->document()->characterCount()) {
+            cursor.setPosition(pos);
+        } else {
+            cursor.movePosition(QTextCursor::End);
+            cursor.insertBlock();
+        }
+    }
+    cursor.insertHtml("<div style=\"margin: 12px 0;\"><hr style=\"border: none; border-top: 1px dashed #6A758A; margin: 4px 0;\"/><div style=\"text-align: center; color: #8A95A8; font-size: 8pt; letter-spacing: 1px;\">─── PAGE BREAK ───</div><hr style=\"border: none; border-top: 1px dashed #6A758A; margin: 4px 0;\"/></div>");
     cursor.insertBlock();
     QTextBlockFormat bf = cursor.blockFormat();
     bf.setPageBreakPolicy(QTextFormat::PageBreak_AlwaysBefore);
     cursor.setBlockFormat(bf);
-    cursor.insertHtml("<div style=\"page-break-before: always; margin: 16px 0;\"><hr style=\"border: none; border-top: 1px dashed #6A758A; margin: 6px 0;\"/><div style=\"text-align: center; color: #8A95A8; font-size: 8pt; letter-spacing: 1px;\">─── PAGE BREAK ───</div></div>");
-    cursor.insertBlock();
-    QTextBlockFormat normalBf;
-    cursor.setBlockFormat(normalBf);
     m_editor->setTextCursor(cursor);
     setModified(true);
+    updatePageInfo();
 }
 
 void RichTextEditor::setColumns(int numColumns)
