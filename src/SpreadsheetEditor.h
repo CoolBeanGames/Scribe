@@ -4,6 +4,17 @@
 #include <QTableWidget>
 #include <QString>
 #include <QLineEdit>
+#include <QColor>
+#include <QPainter>
+#include <QList>
+
+struct FormulaSelection {
+    int topRow = -1;
+    int bottomRow = -1;
+    int leftCol = -1;
+    int rightCol = -1;
+    QColor color;
+};
 
 class SpreadsheetEditor : public QWidget, public EditorBase {
     Q_OBJECT
@@ -23,6 +34,8 @@ public:
     QString displayName() const override;
 
     QTableWidget* tableWidget() const { return m_table; }
+    bool inFormulaMode() const { return m_inFormulaMode; }
+    void paintFormulaSelections(QPainter& p);
 
     void addRow();
     void addColumn();
@@ -50,6 +63,10 @@ private:
     bool m_inFormulaMode = false;
     int m_formulaRow = -1;
     int m_formulaCol = -1;
+    QList<FormulaSelection> m_formulaSelections;
+    bool m_isDraggingSelection = false;
+    int m_dragStartRow = -1;
+    int m_dragStartCol = -1;
     void enterFormulaMode();
     void exitFormulaMode(bool apply);
     void buildContextMenu(QMenu* menu) override;

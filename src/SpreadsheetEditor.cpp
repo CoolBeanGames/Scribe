@@ -3,6 +3,7 @@
 #include <QLineEdit>
 #include <QHeaderView>
 #include <QKeyEvent>
+#include <QMouseEvent>
 #include <QVBoxLayout>
 #include <QHeaderView>
 #include <QKeyEvent>
@@ -21,7 +22,17 @@ public:
     explicit SpreadsheetTable(int rows, int cols, QWidget* parent = nullptr)
         : QTableWidget(rows, cols, parent) {}
 
+    void setEditor(SpreadsheetEditor* ed) { m_editor = ed; }
+
 protected:
+    void paintEvent(QPaintEvent* event) override
+    {
+        QTableWidget::paintEvent(event);
+        if (m_editor && m_editor->inFormulaMode()) {
+            QPainter painter(viewport());
+            m_editor->paintFormulaSelections(painter);
+        }
+    }
     void keyPressEvent(QKeyEvent* event) override
     {
         int row = currentRow();
@@ -58,6 +69,9 @@ protected:
 
         QTableWidget::keyPressEvent(event);
     }
+
+private:
+    SpreadsheetEditor* m_editor = nullptr;
 };
 
 // -------------------------------------------------------------------
@@ -74,7 +88,9 @@ SpreadsheetEditor::SpreadsheetEditor(QWidget* parent)
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
 
-    m_table = new SpreadsheetTable(50, 26, this);
+    auto* sheetTable = new SpreadsheetTable(50, 26, this);
+    sheetTable->setEditor(this);
+    m_table = sheetTable;
     m_table->setAlternatingRowColors(true);
 
     // Row headers: 1, 2, 3...
@@ -383,18 +399,100 @@ void SpreadsheetEditor::onCellChanged()
 
 
 
+static const QList<QColor> FORMULA_COLORS = {
+    QColor("#61AFEF"), // Blue
+    QColor("#E06C75"), // Red
+    QColor("#98C379"), // Green
+    QColor("#E5C07B"), // Amber
+    QColor("#C678DD"), // Purple
+    QColor("#56B6C2"), // Cyan
+    QColor("#FF79C6"), // Pink
+    QColor("#8B7CFF")  // Violet
+};
+
+void SpreadsheetEditor::paintFormulaSelections(QPainter& p)
+{
+    if (!m_inFormulaMode) return;
+    for (const auto& sel : m_formulaSelections) {
+        if (sel.topRow < 0 || sel.leftCol < 0) continue;
+        int t = qMax(0, sel.topRow);
+        int b = qMin(m_table->rowCount() - 1, sel.bottomRow);
+        int l = qMax(0, sel.leftCol);
+        int r = qMin(m_table->columnCount() - 1, sel.rightCol);
+
+        QRect r1 = m_table->visualRect(m_table->model()->index(t, l));
+        QRect r2 = m_table->visualRect(m_table->model()->index(b, r));
+        QRect bound = r1.united(r2);
+        if (bound.isValid() && !bound.isEmpty()) {
+            p.save();
+            p.setRenderHint(QPainter::Antialiasing, false);
+            p.setPen(QPen(sel.color, 2, Qt::SolidLine));
+            QColor fillCol = sel.color;
+            fillCol.setAlpha(35);
+            p.setBrush(fillCol);
+            p.drawRect(bound.adjusted(0, 0, -1, -1));
+            p.restore();
+        }
+    }
+}
+
 bool SpreadsheetEditor::eventFilter(QObject* obj, QEvent* event) {
     if (obj == m_table->viewport() || obj == m_table) {
-        if (event->type() == QEvent::MouseButtonPress && m_inFormulaMode) {
-            QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
-            QPoint pos = (obj == m_table) ? mouseEvent->position().toPoint() : mouseEvent->position().toPoint();
-            int row = m_table->rowAt(pos.y());
-            int col = m_table->columnAt(pos.x());
-            if (row >= 0 && col >= 0) {
-                QString cellName = getCellName(row, col);
-                m_formulaBar->setText(m_formulaBar->text() + cellName);
-                m_formulaBar->setFocus();
-                return true; // Eat mouse press so table doesn't change selection or start editing
+        if (m_inFormulaMode) {
+            if (event->type() == QEvent::MouseButtonPress) {
+                auto* me = static_cast<QMouseEvent*>(event);
+                if (me->button() == Qt::LeftButton) {
+                    QPoint pos = (obj == m_table) ? m_table->viewport()->mapFrom(m_table, me->pos()) : me->pos();
+                    int row = m_table->rowAt(pos.y());
+                    int col = m_table->columnAt(pos.x());
+                    if (row >= 0 && col >= 0) {
+                        m_isDraggingSelection = true;
+                        m_dragStartRow = row;
+                        m_dragStartCol = col;
+                        FormulaSelection sel;
+                        sel.topRow = row;
+                        sel.bottomRow = row;
+                        sel.leftCol = col;
+                        sel.rightCol = col;
+                        sel.color = FORMULA_COLORS[m_formulaSelections.size() % FORMULA_COLORS.size()];
+                        m_formulaSelections.append(sel);
+                        m_table->viewport()->update();
+                        return true;
+                    }
+                }
+            } else if (event->type() == QEvent::MouseMove && m_isDraggingSelection) {
+                auto* me = static_cast<QMouseEvent*>(event);
+                QPoint pos = (obj == m_table) ? m_table->viewport()->mapFrom(m_table, me->pos()) : me->pos();
+                int row = m_table->rowAt(pos.y());
+                int col = m_table->columnAt(pos.x());
+                if (row >= 0 && col >= 0 && !m_formulaSelections.isEmpty()) {
+                    FormulaSelection& sel = m_formulaSelections.last();
+                    sel.topRow = qMin(m_dragStartRow, row);
+                    sel.bottomRow = qMax(m_dragStartRow, row);
+                    sel.leftCol = qMin(m_dragStartCol, col);
+                    sel.rightCol = qMax(m_dragStartCol, col);
+                    m_table->viewport()->update();
+                    return true;
+                }
+            } else if (event->type() == QEvent::MouseButtonRelease && m_isDraggingSelection) {
+                m_isDraggingSelection = false;
+                if (!m_formulaSelections.isEmpty()) {
+                    const FormulaSelection& sel = m_formulaSelections.last();
+                    QString ref;
+                    if (sel.topRow == sel.bottomRow && sel.leftCol == sel.rightCol) {
+                        ref = getCellName(sel.topRow, sel.leftCol);
+                    } else {
+                        ref = getCellName(sel.topRow, sel.leftCol) + ":" + getCellName(sel.bottomRow, sel.rightCol);
+                    }
+                    int cursor = m_formulaBar->cursorPosition();
+                    QString cur = m_formulaBar->text();
+                    QString next = cur.left(cursor) + ref + cur.mid(cursor);
+                    m_formulaBar->setText(next);
+                    m_formulaBar->setCursorPosition(cursor + ref.length());
+                    m_formulaBar->setFocus();
+                    m_table->viewport()->update();
+                    return true;
+                }
             }
         }
     }
@@ -418,11 +516,14 @@ bool SpreadsheetEditor::eventFilter(QObject* obj, QEvent* event) {
 void SpreadsheetEditor::enterFormulaMode() {
     m_table->setSelectionMode(QAbstractItemView::NoSelection);
     m_inFormulaMode = true;
+    m_formulaSelections.clear();
+    m_isDraggingSelection = false;
     m_formulaRow = m_table->currentRow();
     m_formulaCol = m_table->currentColumn();
     m_formulaBar->show();
     m_formulaBar->setText("=");
     m_formulaBar->setFocus();
+    m_table->viewport()->update();
 }
 
 void SpreadsheetEditor::exitFormulaMode(bool apply) {
@@ -438,7 +539,10 @@ void SpreadsheetEditor::exitFormulaMode(bool apply) {
         setModified(true);
     }
     m_inFormulaMode = false;
+    m_formulaSelections.clear();
+    m_isDraggingSelection = false;
     m_formulaBar->hide();
+    m_table->viewport()->update();
     m_table->setFocus();
 }
 
@@ -491,10 +595,8 @@ QString SpreadsheetEditor::getCellName(int r, int c) const {
 }
 
 void SpreadsheetEditor::onCellClicked(int row, int column) {
-    if (m_inFormulaMode) {
-        QString cellName = getCellName(row, column);
-        m_formulaBar->setText(m_formulaBar->text() + cellName);
-    }
+    Q_UNUSED(row);
+    Q_UNUSED(column);
 }
 
 void SpreadsheetEditor::onCustomContextMenu(const QPoint& pos) {
