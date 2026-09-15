@@ -68,7 +68,8 @@ QList<FileTypeAssociation> FileAssociations::supportedTypes() {
         { ".rtf",  "Scribe.rtf",  "Rich Text Document",        "Rich Text" },
 
         // Spreadsheet
-        { ".csv",  "Scribe.csv",  "CSV Spreadsheet",         "Spreadsheet" },
+        { ".scht", "Scribe.scht", "Scribe Spreadsheet Document", "Spreadsheet" },
+        { ".csv",  "Scribe.csv",  "CSV Spreadsheet",             "Spreadsheet" },
 
         // Code / Scripting
         { ".py",   "Scribe.py",   "Python Source File",      "Code" },

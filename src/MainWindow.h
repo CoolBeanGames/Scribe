@@ -44,6 +44,7 @@ private:
     QAction* m_actNewDocx = nullptr;
     QAction* m_actNewWord = nullptr;
     QAction* m_actNewExcel = nullptr;
+    QAction* m_actNewScht = nullptr;
     QAction* m_actNewCsv = nullptr;
     QAction* m_actOpen     = nullptr;
     QAction* m_actSave     = nullptr;

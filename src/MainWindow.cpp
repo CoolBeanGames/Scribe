@@ -109,6 +109,7 @@ void MainWindow::setupMenuBar()
     m_actNewWord = richTextMenu->addAction(".word");
     
     QMenu* sheetMenu = newMenu->addMenu("Spreadsheet");
+    m_actNewScht = sheetMenu->addAction(".scht");
     m_actNewExcel = sheetMenu->addAction("excel");
     m_actNewCsv = sheetMenu->addAction("csv");
 
@@ -150,6 +151,7 @@ void MainWindow::setupMenuBar()
     connect(m_actNewRtf, &QAction::triggered, this, &MainWindow::newRichText);
     connect(m_actNewDocx, &QAction::triggered, this, &MainWindow::newRichText);
     connect(m_actNewWord, &QAction::triggered, this, &MainWindow::newRichText);
+    connect(m_actNewScht, &QAction::triggered, this, &MainWindow::newSpreadsheet);
     connect(m_actNewExcel, &QAction::triggered, this, &MainWindow::newSpreadsheet);
     connect(m_actNewCsv, &QAction::triggered, this, &MainWindow::newSpreadsheet);
     connect(m_actOpen, &QAction::triggered, this, qOverload<>(&MainWindow::openFile));
@@ -548,8 +550,9 @@ void MainWindow::runCurrentCode()
 void MainWindow::openFile()
 {
     QString filter =
-        "All Supported Files (*.stxt *.txt *.md *.rtf *.csv *.py *.cpp *.h *.js *.cs *.json *.html *.htm *.css);;"
+        "All Supported Files (*.stxt *.txt *.md *.rtf *.scht *.csv *.py *.cpp *.h *.js *.cs *.json *.html *.htm *.css);;"
         "Scribe Rich Text (*.stxt);;"
+        "Scribe Spreadsheet (*.scht);;"
         "Plain Text (*.txt *.md);;"
         "Rich Text (*.stxt *.rtf);;"
         "CSV Spreadsheet (*.csv);;"
@@ -575,7 +578,7 @@ void MainWindow::openFile(const QString& path)
                 this, &MainWindow::syncFormatToolbar);
         if (!rich->loadFile(path)) { delete rich; return; }
         editor = rich;
-    } else if (ext == "csv") {
+    } else if (ext == "scht" || ext == "csv") {
         auto* sheet = new SpreadsheetEditor(this);
         if (!sheet->loadFile(path)) { delete sheet; return; }
         editor = sheet;
@@ -626,8 +629,8 @@ void MainWindow::saveCurrentFileAs()
         defaultExt = ".stxt";
         break;
     case DocumentType::Spreadsheet:
-        filter = "CSV Spreadsheet (*.csv);;All Files (*)";
-        defaultExt = ".csv";
+        filter = "Scribe Spreadsheet (*.scht);;CSV Spreadsheet (*.csv);;All Files (*)";
+        defaultExt = ".scht";
         break;
     }
 

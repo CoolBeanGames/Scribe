@@ -14,6 +14,9 @@
 #include <QMessageBox>
 #include <QTableWidgetItem>
 #include <QApplication>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
 
 // -------------------------------------------------------------------
 // Custom QTableWidget with overridden key handling
@@ -144,18 +147,64 @@ void SpreadsheetEditor::setFilePath(const QString& path)
 bool SpreadsheetEditor::loadFile(const QString& path)
 {
     QFile file(path);
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    if (!file.open(QIODevice::ReadOnly)) {
         QMessageBox::warning(this, "Open Error",
             QString("Cannot open file:\n%1\n\n%2").arg(path, file.errorString()));
         return false;
     }
 
+    QByteArray rawData = file.readAll();
+    file.close();
+
     // Disconnect to avoid false modification signals while loading
     disconnect(m_table, &QTableWidget::cellChanged, this, &SpreadsheetEditor::onCellChanged);
-
     m_table->clearContents();
 
-    QTextStream stream(&file);
+    QString ext = QFileInfo(path).suffix().toLower();
+    if (ext == "scht" || rawData.trimmed().startsWith('{')) {
+        QJsonParseError parseErr;
+        QJsonDocument doc = QJsonDocument::fromJson(rawData, &parseErr);
+        if (!doc.isNull() && doc.isObject()) {
+            QJsonObject root = doc.object();
+            int rows = root.value("rowCount").toInt(50);
+            int cols = root.value("columnCount").toInt(26);
+            m_table->setRowCount(rows);
+            m_table->setColumnCount(cols);
+            for (int r = 0; r < rows; ++r) {
+                m_table->setVerticalHeaderItem(r, new QTableWidgetItem(QString::number(r + 1)));
+            }
+            updateColumnHeaders();
+
+            QJsonArray cells = root.value("cells").toArray();
+            for (const auto& cVal : cells) {
+                QJsonObject cObj = cVal.toObject();
+                int r = cObj.value("row").toInt(-1);
+                int c = cObj.value("col").toInt(-1);
+                if (r >= 0 && r < rows && c >= 0 && c < cols) {
+                    QString text = cObj.value("text").toString();
+                    auto* item = new QTableWidgetItem(text);
+                    if (cObj.contains("bg")) {
+                        item->setBackground(QColor(cObj.value("bg").toString()));
+                    }
+                    if (cObj.contains("fg")) {
+                        item->setForeground(QColor(cObj.value("fg").toString()));
+                    }
+                    if (cObj.contains("align")) {
+                        item->setTextAlignment(cObj.value("align").toInt());
+                    }
+                    m_table->setItem(r, c, item);
+                }
+            }
+
+            connect(m_table, &QTableWidget::cellChanged, this, &SpreadsheetEditor::onCellChanged);
+            setFilePath(path);
+            setModified(false);
+            return true;
+        }
+    }
+
+    // CSV format loading
+    QTextStream stream(&rawData);
     stream.setEncoding(QStringConverter::Utf8);
 
     int row = 0;
@@ -178,7 +227,6 @@ bool SpreadsheetEditor::loadFile(const QString& path)
         }
         ++row;
     }
-    file.close();
 
     connect(m_table, &QTableWidget::cellChanged, this, &SpreadsheetEditor::onCellChanged);
 
@@ -195,6 +243,60 @@ bool SpreadsheetEditor::saveFile()
 
 bool SpreadsheetEditor::saveFileAs(const QString& path)
 {
+    QString ext = QFileInfo(path).suffix().toLower();
+
+    if (ext == "scht") {
+        QFile file(path);
+        if (!file.open(QIODevice::WriteOnly)) {
+            QMessageBox::warning(this, "Save Error",
+                QString("Cannot save file:\n%1\n\n%2").arg(path, file.errorString()));
+            return false;
+        }
+
+        QJsonObject root;
+        root["format"] = "scht";
+        root["version"] = 1;
+        root["rowCount"] = m_table->rowCount();
+        root["columnCount"] = m_table->columnCount();
+
+        QJsonArray cells;
+        for (int r = 0; r < m_table->rowCount(); ++r) {
+            for (int c = 0; c < m_table->columnCount(); ++c) {
+                QTableWidgetItem* item = m_table->item(r, c);
+                if (!item) continue;
+                // If there's an underlying formula stored, prefer saving that over calculated display value
+                QString rawText = item->data(Qt::UserRole).toString();
+                if (rawText.isEmpty()) {
+                    rawText = item->text();
+                }
+                bool hasText = !rawText.isEmpty();
+                bool hasBg = item->background().color().isValid() && item->background() != Qt::NoBrush;
+                bool hasFg = item->foreground().color().isValid() && item->foreground() != Qt::NoBrush;
+                if (hasText || hasBg || hasFg) {
+                    QJsonObject cObj;
+                    cObj["row"] = r;
+                    cObj["col"] = c;
+                    if (hasText) cObj["text"] = rawText;
+                    if (hasBg) cObj["bg"] = item->background().color().name(QColor::HexArgb);
+                    if (hasFg) cObj["fg"] = item->foreground().color().name(QColor::HexArgb);
+                    if (item->textAlignment() != (Qt::AlignLeft | Qt::AlignVCenter)) {
+                        cObj["align"] = static_cast<int>(item->textAlignment());
+                    }
+                    cells.append(cObj);
+                }
+            }
+        }
+        root["cells"] = cells;
+
+        QJsonDocument doc(root);
+        file.write(doc.toJson(QJsonDocument::Indented));
+        file.close();
+
+        setFilePath(path);
+        setModified(false);
+        return true;
+    }
+
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
         QMessageBox::warning(this, "Save Error",
@@ -232,7 +334,7 @@ bool SpreadsheetEditor::saveFileAs(const QString& path)
 
 QString SpreadsheetEditor::displayName() const
 {
-    if (m_filePath.isEmpty()) return "Untitled";
+    if (m_filePath.isEmpty()) return "Untitled.scht";
     return QFileInfo(m_filePath).fileName();
 }
 
