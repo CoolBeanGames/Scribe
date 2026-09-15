@@ -2,6 +2,7 @@
 #include "PythonHighlighter.h"
 #include "CSharpHighlighter.h"
 #include "JsonHighlighter.h"
+#include "HtmlHighlighter.h"
 #include <QPainter>
 #include <QTextBlock>
 #include <QPalette>
@@ -71,6 +72,9 @@ void CodeEditorWidget::setLanguage(CodeLanguage lang) {
         break;
     case CodeLanguage::Json:
         m_highlighter = new JsonHighlighter(this->document());
+        break;
+    case CodeLanguage::Html:
+        m_highlighter = new HtmlHighlighter(this->document());
         break;
     case CodeLanguage::Python:
     default:
@@ -188,7 +192,7 @@ void CodeEditorWidget::keyPressEvent(QKeyEvent* e) {
         if (!cursor.atBlockEnd() && !cursor.atBlockStart()) {
             QChar before = cursor.document()->characterAt(cursor.position() - 1);
             QChar after = cursor.document()->characterAt(cursor.position());
-            if ((before == '{' && after == '}') || (before == '[' && after == ']')) {
+            if ((before == '{' && after == '}') || (before == '[' && after == ']') || (before == '>' && after == '<')) {
                 betweenBraces = true;
             }
         }
@@ -218,6 +222,8 @@ void CodeEditorWidget::keyPressEvent(QKeyEvent* e) {
         } else if ((m_language == CodeLanguage::CSharp || m_language == CodeLanguage::Generic) && trimmed.endsWith('{')) {
             spaceCount += 4;
         } else if (m_language == CodeLanguage::Json && (trimmed.endsWith('{') || trimmed.endsWith('['))) {
+            spaceCount += 4;
+        } else if (m_language == CodeLanguage::Html && trimmed.endsWith('>') && !trimmed.endsWith("/>") && !trimmed.startsWith("</") && !trimmed.endsWith("-->")) {
             spaceCount += 4;
         }
         if (spaceCount > 0) {
@@ -373,11 +379,28 @@ void CodeEditorWidget::updateCompleterWords()
         "true", "false", "null"
     };
 
+    static const QStringList htmlKeywords = {
+        // Elements
+        "html", "head", "title", "body", "header", "footer", "nav", "section",
+        "article", "aside", "main", "div", "span", "p", "h1", "h2", "h3", "h4",
+        "h5", "h6", "ul", "ol", "li", "table", "thead", "tbody", "tr", "th", "td",
+        "form", "input", "button", "select", "option", "textarea", "label",
+        "a", "img", "link", "meta", "script", "style", "canvas", "svg", "path",
+        "iframe", "br", "hr", "code", "pre", "blockquote", "em", "strong", "b", "i",
+        // Attributes
+        "class", "id", "name", "type", "value", "placeholder", "href", "src",
+        "alt", "title", "style", "rel", "target", "width", "height", "method",
+        "action", "required", "disabled", "readonly", "checked", "selected",
+        "autocomplete", "autofocus", "charset", "content", "lang", "role"
+    };
+
     QSet<QString> wordSet;
     if (m_language == CodeLanguage::CSharp) {
         wordSet = QSet<QString>(csharpKeywords.begin(), csharpKeywords.end());
     } else if (m_language == CodeLanguage::Json) {
         wordSet = QSet<QString>(jsonKeywords.begin(), jsonKeywords.end());
+    } else if (m_language == CodeLanguage::Html) {
+        wordSet = QSet<QString>(htmlKeywords.begin(), htmlKeywords.end());
     } else {
         wordSet = QSet<QString>(pythonKeywords.begin(), pythonKeywords.end());
     }

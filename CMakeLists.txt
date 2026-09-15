@@ -43,6 +43,8 @@ set(SOURCES
     src/CSharpHighlighter.h
     src/JsonHighlighter.cpp
     src/JsonHighlighter.h
+    src/HtmlHighlighter.cpp
+    src/HtmlHighlighter.h
     src/TabWidget.cpp
     src/TabWidget.h
     src/EditorBase.h
