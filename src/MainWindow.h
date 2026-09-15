@@ -29,6 +29,7 @@ private:
     // UI components
     TabWidget*    m_tabWidget     = nullptr;
     QToolBar*     m_mainToolbar   = nullptr;
+    QToolBar*     m_textToolbar   = nullptr;   // plain text toolbar (line numbers, font)
     QToolBar*     m_formatToolbar = nullptr;   // rich text formatting toolbar
     QToolBar*     m_sheetToolbar  = nullptr;   // spreadsheet toolbar
     QStatusBar*   m_statusBar     = nullptr;
@@ -83,6 +84,7 @@ private:
     // Setup helpers
     void setupMenuBar();
     void setupMainToolbar();
+    void setupTextToolbar();
     void setupFormatToolbar();
     void setupSheetToolbar();
     void setupStatusBar();
@@ -140,8 +142,18 @@ private:
     void onDeleteColumn();
     void onCellColor();
 
-    // Sync format toolbar state from current cursor
+    // Plain text toolbar actions / widgets
+    QAction*       m_actToggleLineNumbers = nullptr;
+    QFontComboBox* m_plainFontCombo       = nullptr;
+    QSpinBox*      m_plainFontSizeSpin    = nullptr;
+
+    // Sync toolbars
+    void syncTextToolbar();
     void syncFormatToolbar();
+
+    void onToggleLineNumbers();
+    void onPlainFontChanged(const QFont& font);
+    void onPlainFontSizeChanged(int size);
 
 private slots:
     void onEditorChanged(EditorBase* editor);

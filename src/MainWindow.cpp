@@ -49,10 +49,12 @@ MainWindow::MainWindow(QWidget* parent)
     FlowLayout* flowLayout = new FlowLayout(toolbarContainer, 0, 0, 0);
 
     m_mainToolbar = new QToolBar(toolbarContainer);
+    m_textToolbar = new QToolBar(toolbarContainer);
     m_formatToolbar = new QToolBar(toolbarContainer);
     m_sheetToolbar = new QToolBar(toolbarContainer);
 
     flowLayout->addWidget(m_mainToolbar);
+    flowLayout->addWidget(m_textToolbar);
     flowLayout->addWidget(m_formatToolbar);
     flowLayout->addWidget(m_sheetToolbar);
 
@@ -65,6 +67,7 @@ MainWindow::MainWindow(QWidget* parent)
 
     setupMenuBar();
     setupMainToolbar();
+    setupTextToolbar();
     setupFormatToolbar();
     setupSheetToolbar();
     setupStatusBar();
@@ -188,6 +191,39 @@ void MainWindow::setupMainToolbar()
     connect(m_actPrintToolbar, &QAction::triggered, this, &MainWindow::onPrint);
     connect(undo, &QAction::triggered, this, &MainWindow::onUndoAction);
     connect(redo, &QAction::triggered, this, &MainWindow::onRedoAction);
+}
+
+// ---------------------------------------------------------------------------
+// Plain text toolbar
+// ---------------------------------------------------------------------------
+void MainWindow::setupTextToolbar()
+{
+    m_textToolbar->setMovable(false);
+    m_textToolbar->setObjectName("TextToolBar");
+    m_textToolbar->setIconSize(QSize(18, 18));
+
+    m_actToggleLineNumbers = m_textToolbar->addAction(ScribeIcons::lineNumbersIcon(), "Line Numbers");
+    m_actToggleLineNumbers->setCheckable(true);
+    m_actToggleLineNumbers->setToolTip("Toggle Line Numbers");
+    connect(m_actToggleLineNumbers, &QAction::toggled, this, &MainWindow::onToggleLineNumbers);
+
+    m_textToolbar->addSeparator();
+
+    m_plainFontCombo = new QFontComboBox(m_textToolbar);
+    m_plainFontCombo->setFixedWidth(170);
+    m_plainFontCombo->setToolTip("Font Family");
+    connect(m_plainFontCombo, &QFontComboBox::currentFontChanged, this, &MainWindow::onPlainFontChanged);
+    m_textToolbar->addWidget(m_plainFontCombo);
+
+    m_plainFontSizeSpin = new QSpinBox(m_textToolbar);
+    m_plainFontSizeSpin->setRange(6, 144);
+    m_plainFontSizeSpin->setValue(13);
+    m_plainFontSizeSpin->setFixedWidth(56);
+    m_plainFontSizeSpin->setToolTip("Font Size");
+    connect(m_plainFontSizeSpin, &QSpinBox::valueChanged, this, &MainWindow::onPlainFontSizeChanged);
+    m_textToolbar->addWidget(m_plainFontSizeSpin);
+
+    m_textToolbar->setVisible(false);
 }
 
 // ---------------------------------------------------------------------------
@@ -716,6 +752,7 @@ void MainWindow::updateToolbarsForEditor(EditorBase* editor)
 {
     if (!editor) {
         m_actRunCode->setVisible(false);
+        m_textToolbar->setVisible(false);
         m_formatToolbar->setVisible(false);
         m_sheetToolbar->setVisible(false);
         m_actSave->setEnabled(false);
@@ -730,24 +767,27 @@ void MainWindow::updateToolbarsForEditor(EditorBase* editor)
     m_actSave->setEnabled(true);
     m_actSaveAs->setEnabled(true);
 
+    bool isPlain = (editor->documentType() == DocumentType::PlainText);
     bool isRich  = (editor->documentType() == DocumentType::RichText);
     bool isSheet = (editor->documentType() == DocumentType::Spreadsheet);
-    bool isCode = (editor->documentType() == DocumentType::Code);
+    bool isCode  = (editor->documentType() == DocumentType::Code);
 
     bool canPrint = !isCode;
     if (m_actPrint) m_actPrint->setEnabled(canPrint);
     if (m_actPrintToolbar) m_actPrintToolbar->setEnabled(canPrint);
 
+    m_textToolbar->setVisible(isPlain);
     m_formatToolbar->setVisible(isRich);
     m_sheetToolbar->setVisible(isSheet);
-    m_actRunCode->setVisible(isCode);
     m_actRunCode->setVisible(isCode);
 
     // Undo/redo only for text editors
     m_actUndo->setEnabled(!isSheet);
     m_actRedo->setEnabled(!isSheet);
 
-    if (isRich) {
+    if (isPlain) {
+        syncTextToolbar();
+    } else if (isRich) {
         syncFormatToolbar();
     }
 }
@@ -976,6 +1016,49 @@ void MainWindow::onCellColor()
             sheet->setCellColor(color);
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// Sync plain text toolbar
+// ---------------------------------------------------------------------------
+void MainWindow::syncTextToolbar()
+{
+    auto* plain = currentPlainEditor();
+    if (!plain) return;
+
+    m_actToggleLineNumbers->blockSignals(true);
+    m_plainFontCombo->blockSignals(true);
+    m_plainFontSizeSpin->blockSignals(true);
+
+    m_actToggleLineNumbers->setChecked(plain->lineNumbersVisible());
+    m_plainFontCombo->setCurrentFont(plain->font());
+    int pt = plain->font().pointSize();
+    if (pt > 0) m_plainFontSizeSpin->setValue(pt);
+
+    m_actToggleLineNumbers->blockSignals(false);
+    m_plainFontCombo->blockSignals(false);
+    m_plainFontSizeSpin->blockSignals(false);
+}
+
+void MainWindow::onToggleLineNumbers()
+{
+    auto* plain = currentPlainEditor();
+    if (!plain) return;
+    plain->setLineNumbersVisible(m_actToggleLineNumbers->isChecked());
+}
+
+void MainWindow::onPlainFontChanged(const QFont& font)
+{
+    auto* plain = currentPlainEditor();
+    if (!plain) return;
+    plain->setEditorFontFamily(font.family());
+}
+
+void MainWindow::onPlainFontSizeChanged(int size)
+{
+    auto* plain = currentPlainEditor();
+    if (!plain) return;
+    plain->setEditorFontSize(size);
 }
 
 // ---------------------------------------------------------------------------

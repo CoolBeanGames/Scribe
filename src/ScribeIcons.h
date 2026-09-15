@@ -302,4 +302,19 @@ inline QIcon cellColorIcon() {
     });
 }
 
+inline QIcon lineNumbersIcon() {
+    return makeIcon([](QPainter& p, int w, int h) {
+        // Line numbers toggle: vertical separator + line number hashes + text lines
+        p.drawLine(7, 3, 7, 17);
+        // Numbers on left (dots / small dashes)
+        p.drawLine(3, 6, 5, 6);
+        p.drawLine(3, 10, 5, 10);
+        p.drawLine(3, 14, 5, 14);
+        // Text lines on right
+        p.drawLine(9, 6, 17, 6);
+        p.drawLine(9, 10, 15, 10);
+        p.drawLine(9, 14, 17, 14);
+    });
+}
+
 } // namespace ScribeIcons

@@ -6,10 +6,35 @@
 #include <QTextStream>
 #include <QFileInfo>
 #include <QMessageBox>
+#include <QPainter>
+#include <QTextBlock>
+
+PlainTextLineNumberArea::PlainTextLineNumberArea(PlainTextEditor* editor)
+    : QWidget(editor), m_editor(editor)
+{
+}
+
+QSize PlainTextLineNumberArea::sizeHint() const
+{
+    return QSize(m_editor->lineNumberAreaWidth(), 0);
+}
+
+void PlainTextLineNumberArea::paintEvent(QPaintEvent* event)
+{
+    m_editor->lineNumberAreaPaintEvent(event);
+}
 
 PlainTextEditor::PlainTextEditor(QWidget* parent)
     : QPlainTextEdit(parent)
 {
+    m_lineNumberArea = new PlainTextLineNumberArea(this);
+    m_lineNumberArea->setVisible(false);
+
+    connect(this, &QPlainTextEdit::blockCountChanged,
+            this, &PlainTextEditor::updateLineNumberAreaWidth);
+    connect(this, &QPlainTextEdit::updateRequest,
+            this, &PlainTextEditor::updateLineNumberArea);
+
     // Set up font
     QFont font("Cascadia Code", 13);
     font.setStyleHint(QFont::Monospace);
@@ -27,9 +52,118 @@ PlainTextEditor::PlainTextEditor(QWidget* parent)
     // Line wrap
     setLineWrapMode(QPlainTextEdit::WidgetWidth);
 
+    updateLineNumberAreaWidth(0);
+
     // Connect internal modification signal
     connect(document(), &QTextDocument::modificationChanged,
             this, &PlainTextEditor::onDocumentModified);
+
+    setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(this, &QWidget::customContextMenuRequested,
+            this, &PlainTextEditor::onCustomContextMenu);
+}
+
+int PlainTextEditor::lineNumberAreaWidth() const
+{
+    if (!m_showLineNumbers) return 0;
+    int digits = 1;
+    int max = qMax(1, blockCount());
+    while (max >= 10) {
+        max /= 10;
+        ++digits;
+    }
+    int space = 8 + fontMetrics().horizontalAdvance(QLatin1Char('9')) * digits;
+    return space;
+}
+
+void PlainTextEditor::updateLineNumberAreaWidth(int /* newBlockCount */)
+{
+    setViewportMargins(lineNumberAreaWidth(), 0, 0, 0);
+}
+
+void PlainTextEditor::updateLineNumberArea(const QRect& rect, int dy)
+{
+    if (!m_showLineNumbers) return;
+    if (dy) {
+        m_lineNumberArea->scroll(0, dy);
+    } else {
+        m_lineNumberArea->update(0, rect.y(), m_lineNumberArea->width(), rect.height());
+    }
+    if (rect.contains(viewport()->rect())) {
+        updateLineNumberAreaWidth(0);
+    }
+}
+
+void PlainTextEditor::resizeEvent(QResizeEvent* event)
+{
+    QPlainTextEdit::resizeEvent(event);
+    if (m_showLineNumbers && m_lineNumberArea) {
+        QRect cr = contentsRect();
+        m_lineNumberArea->setGeometry(QRect(cr.left(), cr.top(), lineNumberAreaWidth(), cr.height()));
+    }
+}
+
+void PlainTextEditor::setLineNumbersVisible(bool visible)
+{
+    m_showLineNumbers = visible;
+    if (m_lineNumberArea) {
+        m_lineNumberArea->setVisible(visible);
+    }
+    updateLineNumberAreaWidth(0);
+    if (visible && m_lineNumberArea) {
+        QRect cr = contentsRect();
+        m_lineNumberArea->setGeometry(QRect(cr.left(), cr.top(), lineNumberAreaWidth(), cr.height()));
+        m_lineNumberArea->update();
+    }
+    emit lineNumbersToggled(visible);
+}
+
+void PlainTextEditor::lineNumberAreaPaintEvent(QPaintEvent* event)
+{
+    if (!m_showLineNumbers) return;
+    QPainter painter(m_lineNumberArea);
+    painter.fillRect(event->rect(), QColor("#0B0D12"));
+    QTextBlock block = firstVisibleBlock();
+    int blockNumber = block.blockNumber();
+    int top = qRound(blockBoundingGeometry(block).translated(contentOffset()).top());
+    int bottom = top + qRound(blockBoundingRect(block).height());
+
+    while (block.isValid() && top <= event->rect().bottom()) {
+        if (block.isVisible() && bottom >= event->rect().top()) {
+            QString number = QString::number(blockNumber + 1);
+            painter.setPen(QColor("#4A5568"));
+            painter.drawText(0, top, m_lineNumberArea->width() - 5, fontMetrics().height(),
+                             Qt::AlignRight | Qt::AlignVCenter, number);
+        }
+        block = block.next();
+        top = bottom;
+        bottom = top + qRound(blockBoundingRect(block).height());
+        ++blockNumber;
+    }
+}
+
+void PlainTextEditor::setEditorFontFamily(const QString& family)
+{
+    QFont f = font();
+    f.setFamily(family);
+    setFont(f);
+    setTabStopDistance(QFontMetricsF(f).horizontalAdvance(' ') * 4);
+    updateLineNumberAreaWidth(0);
+    if (m_showLineNumbers && m_lineNumberArea) {
+        m_lineNumberArea->update();
+    }
+}
+
+void PlainTextEditor::setEditorFontSize(int pointSize)
+{
+    QFont f = font();
+    f.setPointSize(pointSize);
+    setFont(f);
+    setTabStopDistance(QFontMetricsF(f).horizontalAdvance(' ') * 4);
+    updateLineNumberAreaWidth(0);
+    if (m_showLineNumbers && m_lineNumberArea) {
+        m_lineNumberArea->update();
+    }
 }
 
 bool PlainTextEditor::isModified() const
@@ -101,7 +235,7 @@ bool PlainTextEditor::saveFileAs(const QString& path)
 
 QString PlainTextEditor::displayName() const
 {
-    if (m_filePath.isEmpty()) return "Untitled";
+    if (m_filePath.isEmpty()) return "Untitled.txt";
     return QFileInfo(m_filePath).fileName();
 }
 
@@ -117,44 +251,20 @@ bool PlainTextEditor::canRedo() const
 
 void PlainTextEditor::keyPressEvent(QKeyEvent* event)
 {
-    if (event->key() == Qt::Key_Backtab) {
-        QTextCursor cursor = textCursor();
-        int start = cursor.selectionStart();
-        int end = cursor.selectionEnd();
-        cursor.setPosition(start);
-        cursor.movePosition(QTextCursor::StartOfLine);
-        cursor.beginEditBlock();
-        while (cursor.position() <= end || (!cursor.hasSelection() && cursor.position() == end)) {
-            cursor.movePosition(QTextCursor::StartOfLine);
-            QTextCursor delCursor = cursor;
-            delCursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor, 4);
-            QString text = delCursor.selectedText();
-            int charsToRemove = 0;
-            for (int i=0; i<text.length(); ++i) {
-                if (text[i] == ' ') charsToRemove++;
-                else if (text[i] == '\t' && i == 0) { charsToRemove = 1; break; }
-                else break;
-            }
-            if (charsToRemove > 0) {
-                delCursor.setPosition(cursor.position());
-                delCursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor, charsToRemove);
-                delCursor.removeSelectedText();
-                end -= charsToRemove;
-            }
-            if (!cursor.movePosition(QTextCursor::NextBlock)) break;
-        }
-        cursor.endEditBlock();
-        return;
-    }
     if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) {
-        // Auto-indent: preserve the indentation of the current line
         QString indent = getIndentForCurrentLine();
-        QPlainTextEdit::keyPressEvent(event); // insert the newline
-        QTextCursor cursor = textCursor();
-        cursor.insertText(indent);             // re-insert leading whitespace
-        setTextCursor(cursor);
+        QPlainTextEdit::keyPressEvent(event);
+        if (!indent.isEmpty()) {
+            insertPlainText(indent);
+        }
         return;
     }
+
+    if (event->key() == Qt::Key_Tab) {
+        insertPlainText("    ");
+        return;
+    }
+
     QPlainTextEdit::keyPressEvent(event);
 }
 
@@ -163,12 +273,12 @@ QString PlainTextEditor::getIndentForCurrentLine() const
     QTextCursor cursor = textCursor();
     cursor.movePosition(QTextCursor::StartOfLine);
     cursor.movePosition(QTextCursor::EndOfLine, QTextCursor::KeepAnchor);
-    const QString line = cursor.selectedText();
+    QString line = cursor.selectedText();
 
     QString indent;
-    for (const QChar& ch : line) {
-        if (ch == ' ' || ch == '\t') {
-            indent += ch;
+    for (QChar c : line) {
+        if (c == ' ' || c == '\t') {
+            indent += c;
         } else {
             break;
         }
@@ -184,7 +294,6 @@ void PlainTextEditor::onDocumentModified()
         emit modificationChanged(mod);
     }
 }
-
 
 void PlainTextEditor::onCustomContextMenu(const QPoint& pos) {
     QMenu menu(this);
@@ -210,5 +319,3 @@ void PlainTextEditor::onCustomContextMenu(const QPoint& pos) {
     
     menu.exec(mapToGlobal(pos));
 }
-
-
