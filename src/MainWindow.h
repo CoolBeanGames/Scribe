@@ -145,7 +145,7 @@ private:
     // Plain text toolbar actions / widgets
     QAction*       m_actToggleLineNumbers = nullptr;
     QFontComboBox* m_plainFontCombo       = nullptr;
-    QSpinBox*      m_plainFontSizeSpin    = nullptr;
+    QComboBox*     m_plainFontSizeCombo   = nullptr;
 
     // Sync toolbars
     void syncTextToolbar();
@@ -153,7 +153,7 @@ private:
 
     void onToggleLineNumbers();
     void onPlainFontChanged(const QFont& font);
-    void onPlainFontSizeChanged(int size);
+    void onPlainFontSizeTextChanged(const QString& text);
 
 private slots:
     void onEditorChanged(EditorBase* editor);

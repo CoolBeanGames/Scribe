@@ -215,13 +215,15 @@ void MainWindow::setupTextToolbar()
     connect(m_plainFontCombo, &QFontComboBox::currentFontChanged, this, &MainWindow::onPlainFontChanged);
     m_textToolbar->addWidget(m_plainFontCombo);
 
-    m_plainFontSizeSpin = new QSpinBox(m_textToolbar);
-    m_plainFontSizeSpin->setRange(6, 144);
-    m_plainFontSizeSpin->setValue(13);
-    m_plainFontSizeSpin->setFixedWidth(56);
-    m_plainFontSizeSpin->setToolTip("Font Size");
-    connect(m_plainFontSizeSpin, &QSpinBox::valueChanged, this, &MainWindow::onPlainFontSizeChanged);
-    m_textToolbar->addWidget(m_plainFontSizeSpin);
+    m_plainFontSizeCombo = new QComboBox(m_textToolbar);
+    m_plainFontSizeCombo->setEditable(true);
+    const QStringList sizes = {"8", "9", "10", "11", "12", "13", "14", "16", "18", "20", "22", "24", "28", "32", "36", "48", "72"};
+    m_plainFontSizeCombo->addItems(sizes);
+    m_plainFontSizeCombo->setCurrentText("13");
+    m_plainFontSizeCombo->setFixedWidth(64);
+    m_plainFontSizeCombo->setToolTip("Font Size");
+    connect(m_plainFontSizeCombo, &QComboBox::currentTextChanged, this, &MainWindow::onPlainFontSizeTextChanged);
+    m_textToolbar->addWidget(m_plainFontSizeCombo);
 
     m_textToolbar->setVisible(false);
 }
@@ -1028,16 +1030,23 @@ void MainWindow::syncTextToolbar()
 
     m_actToggleLineNumbers->blockSignals(true);
     m_plainFontCombo->blockSignals(true);
-    m_plainFontSizeSpin->blockSignals(true);
+    m_plainFontSizeCombo->blockSignals(true);
 
     m_actToggleLineNumbers->setChecked(plain->lineNumbersVisible());
     m_plainFontCombo->setCurrentFont(plain->font());
     int pt = plain->font().pointSize();
-    if (pt > 0) m_plainFontSizeSpin->setValue(pt);
+    if (pt > 0) {
+        int idx = m_plainFontSizeCombo->findText(QString::number(pt));
+        if (idx >= 0) {
+            m_plainFontSizeCombo->setCurrentIndex(idx);
+        } else {
+            m_plainFontSizeCombo->setCurrentText(QString::number(pt));
+        }
+    }
 
     m_actToggleLineNumbers->blockSignals(false);
     m_plainFontCombo->blockSignals(false);
-    m_plainFontSizeSpin->blockSignals(false);
+    m_plainFontSizeCombo->blockSignals(false);
 }
 
 void MainWindow::onToggleLineNumbers()
@@ -1054,8 +1063,11 @@ void MainWindow::onPlainFontChanged(const QFont& font)
     plain->setEditorFontFamily(font.family());
 }
 
-void MainWindow::onPlainFontSizeChanged(int size)
+void MainWindow::onPlainFontSizeTextChanged(const QString& text)
 {
+    bool ok = false;
+    int size = text.toInt(&ok);
+    if (!ok || size <= 0) return;
     auto* plain = currentPlainEditor();
     if (!plain) return;
     plain->setEditorFontSize(size);

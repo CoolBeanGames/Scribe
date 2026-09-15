@@ -147,6 +147,7 @@ void PlainTextEditor::setEditorFontFamily(const QString& family)
     QFont f = font();
     f.setFamily(family);
     setFont(f);
+    document()->setDefaultFont(f);
     setTabStopDistance(QFontMetricsF(f).horizontalAdvance(' ') * 4);
     updateLineNumberAreaWidth(0);
     if (m_showLineNumbers && m_lineNumberArea) {
@@ -159,6 +160,7 @@ void PlainTextEditor::setEditorFontSize(int pointSize)
     QFont f = font();
     f.setPointSize(pointSize);
     setFont(f);
+    document()->setDefaultFont(f);
     setTabStopDistance(QFontMetricsF(f).horizontalAdvance(' ') * 4);
     updateLineNumberAreaWidth(0);
     if (m_showLineNumbers && m_lineNumberArea) {
