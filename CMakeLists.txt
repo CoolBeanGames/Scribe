@@ -47,6 +47,8 @@ set(SOURCES
     src/HtmlHighlighter.h
     src/CssHighlighter.cpp
     src/CssHighlighter.h
+    src/XmlHighlighter.cpp
+    src/XmlHighlighter.h
     src/TabWidget.cpp
     src/TabWidget.h
     src/EditorBase.h

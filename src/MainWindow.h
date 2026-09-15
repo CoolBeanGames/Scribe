@@ -42,6 +42,7 @@ private:
     QAction* m_actNewJson = nullptr;
     QAction* m_actNewHtml = nullptr;
     QAction* m_actNewCss = nullptr;
+    QAction* m_actNewXml = nullptr;
     QAction* m_actRunCode = nullptr;
     QAction* m_actNewStxt = nullptr;
     QAction* m_actNewRtf = nullptr;

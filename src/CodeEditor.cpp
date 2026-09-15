@@ -5,6 +5,8 @@
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonParseError>
+#include <QXmlStreamReader>
+#include <QXmlStreamWriter>
 
 CodeEditor::CodeEditor(QWidget* parent) : QWidget(parent) {
     auto* layout = new QVBoxLayout(this);
@@ -30,6 +32,7 @@ QString CodeEditor::displayName() const {
         case CodeLanguage::Json:   return "Untitled.json";
         case CodeLanguage::Html:   return "Untitled.html";
         case CodeLanguage::Css:    return "Untitled.css";
+        case CodeLanguage::Xml:    return "Untitled.xml";
         case CodeLanguage::Python:
         default:                   return "Untitled.py";
         }
@@ -79,6 +82,8 @@ bool CodeEditor::loadFile(const QString& path) {
         setLanguage(CodeLanguage::Html);
     } else if (ext == "css") {
         setLanguage(CodeLanguage::Css);
+    } else if (ext == "xml") {
+        setLanguage(CodeLanguage::Xml);
     } else {
         setLanguage(CodeLanguage::Python);
     }
@@ -100,6 +105,30 @@ void CodeEditor::onCustomContextMenu(const QPoint& pos) {
             QJsonDocument doc = QJsonDocument::fromJson(m_editor->toPlainText().toUtf8(), &err);
             if (err.error == QJsonParseError::NoError) {
                 m_editor->setPlainText(QString::fromUtf8(doc.toJson(QJsonDocument::Indented)));
+            }
+        });
+    } else if (m_editor->language() == CodeLanguage::Xml) {
+        menu->addSeparator();
+        QAction* actFormat = menu->addAction("Format XML");
+        connect(actFormat, &QAction::triggered, this, [this]() {
+            QString inXml = m_editor->toPlainText();
+            QXmlStreamReader reader(inXml);
+            QString outXml;
+            QXmlStreamWriter writer(&outXml);
+            writer.setAutoFormatting(true);
+            writer.setAutoFormattingIndent(4);
+            while (!reader.atEnd()) {
+                reader.readNext();
+                if (reader.error()) {
+                    return;
+                }
+                if (reader.isWhitespace()) {
+                    continue;
+                }
+                writer.writeCurrentToken(reader);
+            }
+            if (!reader.hasError()) {
+                m_editor->setPlainText(outXml);
             }
         });
     }

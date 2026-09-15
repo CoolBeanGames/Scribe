@@ -4,6 +4,7 @@
 #include "JsonHighlighter.h"
 #include "HtmlHighlighter.h"
 #include "CssHighlighter.h"
+#include "XmlHighlighter.h"
 #include <QPainter>
 #include <QTextBlock>
 #include <QPalette>
@@ -79,6 +80,9 @@ void CodeEditorWidget::setLanguage(CodeLanguage lang) {
         break;
     case CodeLanguage::Css:
         m_highlighter = new CssHighlighter(this->document());
+        break;
+    case CodeLanguage::Xml:
+        m_highlighter = new XmlHighlighter(this->document());
         break;
     case CodeLanguage::Python:
     default:
@@ -227,7 +231,7 @@ void CodeEditorWidget::keyPressEvent(QKeyEvent* e) {
             spaceCount += 4;
         } else if (m_language == CodeLanguage::Json && (trimmed.endsWith('{') || trimmed.endsWith('['))) {
             spaceCount += 4;
-        } else if (m_language == CodeLanguage::Html && trimmed.endsWith('>') && !trimmed.endsWith("/>") && !trimmed.startsWith("</") && !trimmed.endsWith("-->")) {
+        } else if ((m_language == CodeLanguage::Html || m_language == CodeLanguage::Xml) && trimmed.endsWith('>') && !trimmed.endsWith("/>") && !trimmed.startsWith("</") && !trimmed.endsWith("-->") && !trimmed.endsWith("?>")) {
             spaceCount += 4;
         }
         if (spaceCount > 0) {
@@ -420,6 +424,17 @@ void CodeEditorWidget::updateCompleterWords()
         "inherit", "initial", "unset", "transparent", "currentColor"
     };
 
+    static const QStringList xmlKeywords = {
+        "xml", "version", "encoding", "standalone", "DOCTYPE", "SYSTEM", "PUBLIC",
+        "xmlns", "xsi", "schemaLocation", "targetNamespace", "element", "attribute",
+        "complexType", "simpleType", "sequence", "choice", "all", "schema",
+        "id", "name", "type", "value", "ref", "minOccurs", "maxOccurs", "use",
+        "string", "boolean", "decimal", "integer", "int", "long", "date", "dateTime",
+        "item", "items", "entry", "data", "root", "title", "description", "content",
+        "author", "url", "link", "record", "field", "property", "config", "configuration",
+        "true", "false", "yes", "no"
+    };
+
     QSet<QString> wordSet;
     if (m_language == CodeLanguage::CSharp) {
         wordSet = QSet<QString>(csharpKeywords.begin(), csharpKeywords.end());
@@ -429,6 +444,8 @@ void CodeEditorWidget::updateCompleterWords()
         wordSet = QSet<QString>(htmlKeywords.begin(), htmlKeywords.end());
     } else if (m_language == CodeLanguage::Css) {
         wordSet = QSet<QString>(cssKeywords.begin(), cssKeywords.end());
+    } else if (m_language == CodeLanguage::Xml) {
+        wordSet = QSet<QString>(xmlKeywords.begin(), xmlKeywords.end());
     } else {
         wordSet = QSet<QString>(pythonKeywords.begin(), pythonKeywords.end());
     }
@@ -453,6 +470,17 @@ void CodeEditorWidget::updateCompleterWords()
         QRegularExpressionMatchIterator itProp = cssPropRegex.globalMatch(docText);
         while (itProp.hasNext()) {
             wordSet.insert(itProp.next().captured(0));
+        }
+    } else if (m_language == CodeLanguage::Xml) {
+        QRegularExpression tagRegex(R"(</?([a-zA-Z0-9_:\.-]+))");
+        QRegularExpressionMatchIterator itTag = tagRegex.globalMatch(docText);
+        while (itTag.hasNext()) {
+            wordSet.insert(itTag.next().captured(1));
+        }
+        QRegularExpression attrRegex(R"(\b([a-zA-Z0-9_:\.-]+)(?=\s*=))");
+        QRegularExpressionMatchIterator itAttr = attrRegex.globalMatch(docText);
+        while (itAttr.hasNext()) {
+            wordSet.insert(itAttr.next().captured(1));
         }
     }
 

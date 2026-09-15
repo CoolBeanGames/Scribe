@@ -13,6 +13,7 @@ enum class CodeLanguage {
     Json,
     Html,
     Css,
+    Xml,
     Generic
 };
 

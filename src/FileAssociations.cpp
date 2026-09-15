@@ -80,7 +80,8 @@ QList<FileTypeAssociation> FileAssociations::supportedTypes() {
         { ".json", "Scribe.json", "JSON Document",           "Code" },
         { ".html", "Scribe.html", "HTML Document",           "Code" },
         { ".htm",  "Scribe.htm",  "HTML Document",           "Code" },
-        { ".css",  "Scribe.css",  "CSS Stylesheet",          "Code" }
+        { ".css",  "Scribe.css",  "CSS Stylesheet",          "Code" },
+        { ".xml",  "Scribe.xml",  "XML Document",            "Code" }
     };
 }
 

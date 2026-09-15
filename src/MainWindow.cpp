@@ -105,6 +105,7 @@ void MainWindow::setupMenuBar()
     m_actNewJson = codeMenu->addAction(".json");
     m_actNewHtml = codeMenu->addAction(".html");
     m_actNewCss = codeMenu->addAction(".css");
+    m_actNewXml = codeMenu->addAction(".xml");
     
     QMenu* richTextMenu = newMenu->addMenu("Rich Text");
     m_actNewStxt = richTextMenu->addAction(".stxt");
@@ -155,6 +156,7 @@ void MainWindow::setupMenuBar()
     connect(m_actNewJson, &QAction::triggered, this, [this]() { newCodeEditor(CodeLanguage::Json); });
     connect(m_actNewHtml, &QAction::triggered, this, [this]() { newCodeEditor(CodeLanguage::Html); });
     connect(m_actNewCss, &QAction::triggered, this, [this]() { newCodeEditor(CodeLanguage::Css); });
+    connect(m_actNewXml, &QAction::triggered, this, [this]() { newCodeEditor(CodeLanguage::Xml); });
     connect(m_actNewStxt, &QAction::triggered, this, &MainWindow::newRichText);
     connect(m_actNewRtf, &QAction::triggered, this, &MainWindow::newRichText);
     connect(m_actNewDocx, &QAction::triggered, this, &MainWindow::newRichText);
@@ -559,13 +561,13 @@ void MainWindow::runCurrentCode()
 void MainWindow::openFile()
 {
     QString filter =
-        "All Supported Files (*.stxt *.txt *.md *.rtf *.scht *.csv *.py *.cpp *.h *.js *.cs *.json *.html *.htm *.css);;"
+        "All Supported Files (*.stxt *.txt *.md *.rtf *.scht *.csv *.py *.cpp *.h *.js *.cs *.json *.html *.htm *.css *.xml);;"
         "Scribe Rich Text (*.stxt);;"
         "Scribe Spreadsheet (*.scht);;"
         "Plain Text (*.txt *.md);;"
         "Rich Text (*.stxt *.rtf);;"
         "CSV Spreadsheet (*.csv);;"
-        "Code (*.py *.cpp *.h *.js *.cs *.json *.html *.htm *.css);;"
+        "Code (*.py *.cpp *.h *.js *.cs *.json *.html *.htm *.css *.xml);;"
         "All Files (*)";
 
     QString path = QFileDialog::getOpenFileName(this, "Open File", QString(), filter);
@@ -592,7 +594,7 @@ void MainWindow::openFile(const QString& path)
         if (!sheet->loadFile(path)) { delete sheet; return; }
         editor = sheet;
     } else if (ext == "py" || ext == "cpp" || ext == "h" || ext == "js" ||
-               ext == "cs" || ext == "json" || ext == "html" || ext == "htm" || ext == "css") {
+               ext == "cs" || ext == "json" || ext == "html" || ext == "htm" || ext == "css" || ext == "xml") {
         auto* code = new CodeEditor(this);
         if (!code->loadFile(path)) { delete code; return; }
         editor = code;
@@ -656,6 +658,9 @@ void MainWindow::saveCurrentFileAs()
         } else if (lang == CodeLanguage::Css) {
             filter = "CSS Stylesheet (*.css);;All Files (*)";
             defaultExt = ".css";
+        } else if (lang == CodeLanguage::Xml) {
+            filter = "XML Document (*.xml);;All Files (*)";
+            defaultExt = ".xml";
         } else {
             filter = "Python Source (*.py);;C++ Source (*.cpp *.h);;JavaScript (*.js);;All Files (*)";
             defaultExt = ".py";
