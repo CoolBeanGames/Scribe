@@ -9,6 +9,7 @@
 #include <QIcon>
 #include "MainWindow.h"
 #include "Theme.h"
+#include "FileAssociations.h"
 
 int main(int argc, char* argv[])
 {
@@ -20,6 +21,17 @@ int main(int argc, char* argv[])
     app.setApplicationName("Scribe");
     app.setApplicationVersion("1.0.0");
     app.setOrganizationName("CoolBeanGames");
+
+    QStringList args = app.arguments();
+    if (args.contains("--register") || args.contains("--register-associations")) {
+        FileAssociations::registerAll();
+        return 0;
+    }
+
+#ifdef _WIN32
+    // Automatically ensure Scribe capabilities and file associations are registered in Windows
+    FileAssociations::registerAll();
+#endif
 
     QIcon appIcon(":/scribe.ico");
     if (appIcon.isNull()) {
@@ -34,10 +46,9 @@ int main(int argc, char* argv[])
     window.setWindowIcon(appIcon);
     window.show();
 
-    QStringList args = app.arguments();
     for (int i = 1; i < args.size(); ++i) {
         QString arg = args[i];
-        if (arg == "-") continue;
+        if (arg == "-" || arg.startsWith("--")) continue;
         if (QFileInfo::exists(arg)) {
             window.openFile(arg);
         }

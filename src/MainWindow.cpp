@@ -8,6 +8,8 @@
 #include "Theme.h"
 #include "InsertTableDialog.h"
 #include "InsertLinkDialog.h"
+#include "DefaultAppDialog.h"
+#include "FileAssociations.h"
 #include <QApplication>
 #include <QMenuBar>
 #include <QToolBar>
@@ -118,6 +120,9 @@ void MainWindow::setupMenuBar()
     m_actPrint->setShortcut(QKeySequence::Print);
 
     fileMenu->addSeparator();
+    m_actDefaultApp = fileMenu->addAction("Windows File Associations / Default App...");
+
+    fileMenu->addSeparator();
     m_actExit = fileMenu->addAction("E&xit");
     m_actExit->setShortcut(QKeySequence::Quit);
 
@@ -127,6 +132,10 @@ void MainWindow::setupMenuBar()
     m_actUndo->setShortcut(QKeySequence::Undo);
     m_actRedo = editMenu->addAction("&Redo");
     m_actRedo->setShortcut(QKeySequence::Redo);
+
+    // ── Tools ─────────────────────────────────────────────────────────────
+    QMenu* toolsMenu = mb->addMenu("&Tools");
+    toolsMenu->addAction(m_actDefaultApp);
 
     // ── Connect actions ───────────────────────────────────────────────────
     connect(m_actNewTxt, &QAction::triggered, this, &MainWindow::newPlainText);
@@ -140,6 +149,7 @@ void MainWindow::setupMenuBar()
     connect(m_actSave,   &QAction::triggered, this, &MainWindow::saveCurrentFile);
     connect(m_actSaveAs, &QAction::triggered, this, &MainWindow::saveCurrentFileAs);
     connect(m_actPrint,  &QAction::triggered, this, &MainWindow::onPrint);
+    connect(m_actDefaultApp, &QAction::triggered, this, &MainWindow::onDefaultAppSettings);
     connect(m_actExit,   &QAction::triggered, this, &QMainWindow::close);
     connect(m_actUndo,   &QAction::triggered, this, &MainWindow::onUndoAction);
     connect(m_actRedo,   &QAction::triggered, this, &MainWindow::onRedoAction);
@@ -496,11 +506,11 @@ void MainWindow::runCurrentCode()
 void MainWindow::openFile()
 {
     QString filter =
-        "All Supported Files (*.txt *.md *.rtf *.csv *.py *.cpp *.h *.js);;"
+        "All Supported Files (*.txt *.md *.rtf *.csv *.py *.cpp *.h *.js *.cs *.json *.html *.htm *.css);;"
         "Plain Text (*.txt *.md);;"
         "Rich Text (*.rtf);;"
         "CSV Spreadsheet (*.csv);;"
-        "Code (*.py *.cpp *.h *.js);;"
+        "Code (*.py *.cpp *.h *.js *.cs *.json *.html *.htm *.css);;"
         "All Files (*)";
 
     QString path = QFileDialog::getOpenFileName(this, "Open File", QString(), filter);
@@ -526,7 +536,8 @@ void MainWindow::openFile(const QString& path)
         auto* sheet = new SpreadsheetEditor(this);
         if (!sheet->loadFile(path)) { delete sheet; return; }
         editor = sheet;
-    } else if (ext == "py" || ext == "cpp" || ext == "h" || ext == "js") {
+    } else if (ext == "py" || ext == "cpp" || ext == "h" || ext == "js" ||
+               ext == "cs" || ext == "json" || ext == "html" || ext == "htm" || ext == "css") {
         auto* code = new CodeEditor(this);
         if (!code->loadFile(path)) { delete code; return; }
         editor = code;
@@ -659,6 +670,12 @@ void MainWindow::onPrint()
         doc.setHtml(html);
         doc.print(&printer);
     }
+}
+
+void MainWindow::onDefaultAppSettings()
+{
+    DefaultAppDialog dlg(this);
+    dlg.exec();
 }
 
 void MainWindow::closeEditor(EditorBase* editor)

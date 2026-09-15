@@ -49,6 +49,7 @@ private:
     QAction* m_actPrintToolbar = nullptr;
     QAction* m_actUndo     = nullptr;
     QAction* m_actRedo     = nullptr;
+    QAction* m_actDefaultApp = nullptr;
     QAction* m_actExit     = nullptr;
 
     // Rich text toolbar actions / widgets
@@ -98,6 +99,7 @@ private:
     void saveCurrentFile();
     void saveCurrentFileAs();
     void onPrint();
+    void onDefaultAppSettings();
     void closeEditor(EditorBase* editor);
 
     // Query current editor
