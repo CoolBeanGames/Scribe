@@ -39,6 +39,8 @@ private:
     QAction* m_actNewMd = nullptr;
     QAction* m_actNewPy = nullptr;
     QAction* m_actRunCode = nullptr;
+    QAction* m_actNewStxt = nullptr;
+    QAction* m_actNewRtf = nullptr;
     QAction* m_actNewDocx = nullptr;
     QAction* m_actNewWord = nullptr;
     QAction* m_actNewExcel = nullptr;

@@ -64,7 +64,8 @@ QList<FileTypeAssociation> FileAssociations::supportedTypes() {
         { ".md",   "Scribe.md",   "Markdown Document",       "Plain Text" },
 
         // Rich Text
-        { ".rtf",  "Scribe.rtf",  "Rich Text Document",      "Rich Text" },
+        { ".stxt", "Scribe.stxt", "Scribe Rich Text Document", "Rich Text" },
+        { ".rtf",  "Scribe.rtf",  "Rich Text Document",        "Rich Text" },
 
         // Spreadsheet
         { ".csv",  "Scribe.csv",  "CSV Spreadsheet",         "Spreadsheet" },

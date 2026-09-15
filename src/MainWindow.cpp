@@ -103,6 +103,8 @@ void MainWindow::setupMenuBar()
     m_actNewPy = codeMenu->addAction(".py");
     
     QMenu* richTextMenu = newMenu->addMenu("Rich Text");
+    m_actNewStxt = richTextMenu->addAction(".stxt");
+    m_actNewRtf = richTextMenu->addAction(".rtf");
     m_actNewDocx = richTextMenu->addAction(".docx");
     m_actNewWord = richTextMenu->addAction(".word");
     
@@ -144,6 +146,8 @@ void MainWindow::setupMenuBar()
     connect(m_actNewTxt, &QAction::triggered, this, &MainWindow::newPlainText);
     connect(m_actNewMd, &QAction::triggered, this, &MainWindow::newPlainText);
     connect(m_actNewPy, &QAction::triggered, this, &MainWindow::newCodeEditor);
+    connect(m_actNewStxt, &QAction::triggered, this, &MainWindow::newRichText);
+    connect(m_actNewRtf, &QAction::triggered, this, &MainWindow::newRichText);
     connect(m_actNewDocx, &QAction::triggered, this, &MainWindow::newRichText);
     connect(m_actNewWord, &QAction::triggered, this, &MainWindow::newRichText);
     connect(m_actNewExcel, &QAction::triggered, this, &MainWindow::newSpreadsheet);
@@ -544,9 +548,10 @@ void MainWindow::runCurrentCode()
 void MainWindow::openFile()
 {
     QString filter =
-        "All Supported Files (*.txt *.md *.rtf *.csv *.py *.cpp *.h *.js *.cs *.json *.html *.htm *.css);;"
+        "All Supported Files (*.stxt *.txt *.md *.rtf *.csv *.py *.cpp *.h *.js *.cs *.json *.html *.htm *.css);;"
+        "Scribe Rich Text (*.stxt);;"
         "Plain Text (*.txt *.md);;"
-        "Rich Text (*.rtf);;"
+        "Rich Text (*.stxt *.rtf);;"
         "CSV Spreadsheet (*.csv);;"
         "Code (*.py *.cpp *.h *.js *.cs *.json *.html *.htm *.css);;"
         "All Files (*)";
@@ -564,7 +569,7 @@ void MainWindow::openFile(const QString& path)
     QString ext = QFileInfo(path).suffix().toLower();
     EditorBase* editor = nullptr;
 
-    if (ext == "rtf") {
+    if (ext == "stxt" || ext == "rtf") {
         auto* rich = new RichTextEditor(this);
         connect(rich, &RichTextEditor::cursorPositionChanged,
                 this, &MainWindow::syncFormatToolbar);
@@ -617,8 +622,8 @@ void MainWindow::saveCurrentFileAs()
         defaultExt = ".txt";
         break;
     case DocumentType::RichText:
-        filter = "Rich Text (*.rtf);;HTML (*.html);;All Files (*)";
-        defaultExt = ".rtf";
+        filter = "Scribe Rich Text (*.stxt);;Rich Text (*.rtf);;HTML (*.html);;All Files (*)";
+        defaultExt = ".stxt";
         break;
     case DocumentType::Spreadsheet:
         filter = "CSV Spreadsheet (*.csv);;All Files (*)";

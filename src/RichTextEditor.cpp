@@ -150,7 +150,9 @@ bool RichTextEditor::loadFile(const QString& path)
     file.close();
 
     QString ext = QFileInfo(path).suffix().toLower();
-    if (ext == "rtf") {
+    if (ext == "stxt") {
+        m_editor->setHtml(QString::fromUtf8(data));
+    } else if (ext == "rtf") {
         // Qt's QTextEdit can read RTF via setContent / directly
         // We'll use the HTML approach via QTextDocument
         // Qt doesn't natively decode RTF very well;
@@ -203,7 +205,9 @@ bool RichTextEditor::saveFileAs(const QString& path)
     QString ext = QFileInfo(path).suffix().toLower();
     QByteArray data;
 
-    if (ext == "rtf") {
+    if (ext == "stxt") {
+        data = m_editor->toHtml().toUtf8();
+    } else if (ext == "rtf") {
         // Export as HTML since Qt doesn't have a native RTF writer.
         // The file is saved as HTML with .rtf extension, which many apps can read.
         // For a true RTF: we embed basic RTF header.
@@ -228,7 +232,7 @@ bool RichTextEditor::saveFileAs(const QString& path)
 
 QString RichTextEditor::displayName() const
 {
-    if (m_filePath.isEmpty()) return "Untitled";
+    if (m_filePath.isEmpty()) return "Untitled.stxt";
     return QFileInfo(m_filePath).fileName();
 }
 
