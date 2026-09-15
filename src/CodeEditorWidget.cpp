@@ -1,6 +1,7 @@
 #include "CodeEditorWidget.h"
 #include "PythonHighlighter.h"
 #include "CSharpHighlighter.h"
+#include "JsonHighlighter.h"
 #include <QPainter>
 #include <QTextBlock>
 #include <QPalette>
@@ -67,6 +68,9 @@ void CodeEditorWidget::setLanguage(CodeLanguage lang) {
     switch (m_language) {
     case CodeLanguage::CSharp:
         m_highlighter = new CSharpHighlighter(this->document());
+        break;
+    case CodeLanguage::Json:
+        m_highlighter = new JsonHighlighter(this->document());
         break;
     case CodeLanguage::Python:
     default:
@@ -179,18 +183,41 @@ void CodeEditorWidget::keyPressEvent(QKeyEvent* e) {
             e->ignore();
             return;
         }
+        QTextCursor cursor = textCursor();
+        bool betweenBraces = false;
+        if (!cursor.atBlockEnd() && !cursor.atBlockStart()) {
+            QChar before = cursor.document()->characterAt(cursor.position() - 1);
+            QChar after = cursor.document()->characterAt(cursor.position());
+            if ((before == '{' && after == '}') || (before == '[' && after == ']')) {
+                betweenBraces = true;
+            }
+        }
+
         QString currentLine = textCursor().block().text();
-        QPlainTextEdit::keyPressEvent(e);
         int spaceCount = 0;
         for (QChar c : currentLine) {
             if (c == ' ') spaceCount++;
             else if (c == '\t') spaceCount += 4;
             else break;
         }
+
+        if (betweenBraces) {
+            cursor.beginEditBlock();
+            cursor.insertText("\n" + QString(spaceCount + 4, ' ') + "\n" + QString(spaceCount, ' '));
+            cursor.movePosition(QTextCursor::PreviousBlock);
+            cursor.movePosition(QTextCursor::EndOfBlock);
+            cursor.endEditBlock();
+            setTextCursor(cursor);
+            return;
+        }
+
         QString trimmed = currentLine.trimmed();
+        QPlainTextEdit::keyPressEvent(e);
         if (m_language == CodeLanguage::Python && trimmed.endsWith(':')) {
             spaceCount += 4;
         } else if ((m_language == CodeLanguage::CSharp || m_language == CodeLanguage::Generic) && trimmed.endsWith('{')) {
+            spaceCount += 4;
+        } else if (m_language == CodeLanguage::Json && (trimmed.endsWith('{') || trimmed.endsWith('['))) {
             spaceCount += 4;
         }
         if (spaceCount > 0) {
@@ -342,20 +369,34 @@ void CodeEditorWidget::updateCompleterWords()
         "ArgumentNullException", "ArgumentException", "InvalidOperationException", "NotImplementedException"
     };
 
+    static const QStringList jsonKeywords = {
+        "true", "false", "null"
+    };
+
     QSet<QString> wordSet;
     if (m_language == CodeLanguage::CSharp) {
         wordSet = QSet<QString>(csharpKeywords.begin(), csharpKeywords.end());
+    } else if (m_language == CodeLanguage::Json) {
+        wordSet = QSet<QString>(jsonKeywords.begin(), jsonKeywords.end());
     } else {
         wordSet = QSet<QString>(pythonKeywords.begin(), pythonKeywords.end());
     }
 
-    // Extract all identifier words from current document
+    // Extract all identifier words and quoted keys from current document
     QString docText = toPlainText();
     QRegularExpression wordRegex(R"(\b[A-Za-z_][A-Za-z0-9_]*\b)");
     QRegularExpressionMatchIterator it = wordRegex.globalMatch(docText);
     while (it.hasNext()) {
         QRegularExpressionMatch m = it.next();
         wordSet.insert(m.captured(0));
+    }
+
+    if (m_language == CodeLanguage::Json) {
+        QRegularExpression keyRegex("\"([A-Za-z0-9_.-]+)\"\\s*:");
+        QRegularExpressionMatchIterator itKey = keyRegex.globalMatch(docText);
+        while (itKey.hasNext()) {
+            wordSet.insert(itKey.next().captured(1));
+        }
     }
 
     QStringList wordList = wordSet.values();

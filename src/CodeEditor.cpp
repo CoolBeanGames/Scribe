@@ -3,6 +3,8 @@
 #include <QFile>
 #include <QTextStream>
 #include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonParseError>
 
 CodeEditor::CodeEditor(QWidget* parent) : QWidget(parent) {
     auto* layout = new QVBoxLayout(this);
@@ -89,6 +91,19 @@ bool CodeEditor::loadFile(const QString& path) {
 void CodeEditor::onCustomContextMenu(const QPoint& pos) {
     QMenu* menu = m_editor->createStandardContextMenu();
     buildContextMenu(menu);
+
+    if (m_editor->language() == CodeLanguage::Json) {
+        menu->addSeparator();
+        QAction* actFormat = menu->addAction("Format JSON");
+        connect(actFormat, &QAction::triggered, this, [this]() {
+            QJsonParseError err;
+            QJsonDocument doc = QJsonDocument::fromJson(m_editor->toPlainText().toUtf8(), &err);
+            if (err.error == QJsonParseError::NoError) {
+                m_editor->setPlainText(QString::fromUtf8(doc.toJson(QJsonDocument::Indented)));
+            }
+        });
+    }
+
     menu->exec(m_editor->mapToGlobal(pos));
     delete menu;
 }
