@@ -3,6 +3,7 @@
 #include "CSharpHighlighter.h"
 #include "JsonHighlighter.h"
 #include "HtmlHighlighter.h"
+#include "CssHighlighter.h"
 #include <QPainter>
 #include <QTextBlock>
 #include <QPalette>
@@ -75,6 +76,9 @@ void CodeEditorWidget::setLanguage(CodeLanguage lang) {
         break;
     case CodeLanguage::Html:
         m_highlighter = new HtmlHighlighter(this->document());
+        break;
+    case CodeLanguage::Css:
+        m_highlighter = new CssHighlighter(this->document());
         break;
     case CodeLanguage::Python:
     default:
@@ -219,7 +223,7 @@ void CodeEditorWidget::keyPressEvent(QKeyEvent* e) {
         QPlainTextEdit::keyPressEvent(e);
         if (m_language == CodeLanguage::Python && trimmed.endsWith(':')) {
             spaceCount += 4;
-        } else if ((m_language == CodeLanguage::CSharp || m_language == CodeLanguage::Generic) && trimmed.endsWith('{')) {
+        } else if ((m_language == CodeLanguage::CSharp || m_language == CodeLanguage::Css || m_language == CodeLanguage::Generic) && trimmed.endsWith('{')) {
             spaceCount += 4;
         } else if (m_language == CodeLanguage::Json && (trimmed.endsWith('{') || trimmed.endsWith('['))) {
             spaceCount += 4;
@@ -394,6 +398,28 @@ void CodeEditorWidget::updateCompleterWords()
         "autocomplete", "autofocus", "charset", "content", "lang", "role"
     };
 
+    static const QStringList cssKeywords = {
+        // Properties
+        "color", "background", "background-color", "background-image", "background-position",
+        "background-size", "background-repeat", "font-family", "font-size", "font-weight",
+        "font-style", "line-height", "text-align", "text-decoration", "text-transform",
+        "letter-spacing", "word-spacing", "display", "position", "top", "right", "bottom",
+        "left", "z-index", "flex", "flex-direction", "flex-wrap", "flex-flow",
+        "justify-content", "align-items", "align-content", "gap", "row-gap", "column-gap",
+        "grid", "grid-template-columns", "grid-template-rows", "grid-column", "grid-row",
+        "width", "height", "min-width", "max-width", "min-height", "max-height",
+        "margin", "margin-top", "margin-right", "margin-bottom", "margin-left",
+        "padding", "padding-top", "padding-right", "padding-bottom", "padding-left",
+        "border", "border-radius", "border-width", "border-style", "border-color",
+        "box-shadow", "text-shadow", "opacity", "overflow", "overflow-x", "overflow-y",
+        "cursor", "pointer-events", "user-select", "transition", "transform", "animation",
+        // Common Values
+        "none", "block", "inline", "inline-block", "flex", "grid", "absolute", "relative",
+        "fixed", "sticky", "static", "auto", "center", "left", "right", "hidden",
+        "visible", "pointer", "solid", "dashed", "dotted", "bold", "normal", "italic",
+        "inherit", "initial", "unset", "transparent", "currentColor"
+    };
+
     QSet<QString> wordSet;
     if (m_language == CodeLanguage::CSharp) {
         wordSet = QSet<QString>(csharpKeywords.begin(), csharpKeywords.end());
@@ -401,6 +427,8 @@ void CodeEditorWidget::updateCompleterWords()
         wordSet = QSet<QString>(jsonKeywords.begin(), jsonKeywords.end());
     } else if (m_language == CodeLanguage::Html) {
         wordSet = QSet<QString>(htmlKeywords.begin(), htmlKeywords.end());
+    } else if (m_language == CodeLanguage::Css) {
+        wordSet = QSet<QString>(cssKeywords.begin(), cssKeywords.end());
     } else {
         wordSet = QSet<QString>(pythonKeywords.begin(), pythonKeywords.end());
     }
@@ -419,6 +447,12 @@ void CodeEditorWidget::updateCompleterWords()
         QRegularExpressionMatchIterator itKey = keyRegex.globalMatch(docText);
         while (itKey.hasNext()) {
             wordSet.insert(itKey.next().captured(1));
+        }
+    } else if (m_language == CodeLanguage::Css) {
+        QRegularExpression cssPropRegex(R"([A-Za-z_-]+(?=\s*:))");
+        QRegularExpressionMatchIterator itProp = cssPropRegex.globalMatch(docText);
+        while (itProp.hasNext()) {
+            wordSet.insert(itProp.next().captured(0));
         }
     }
 
