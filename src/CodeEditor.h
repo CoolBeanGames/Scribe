@@ -20,6 +20,9 @@ public:
     bool saveFile() override;
     bool saveFileAs(const QString& path) override;
 
+    void setLanguage(CodeLanguage lang);
+    CodeLanguage language() const;
+
     void undo() override { m_editor->undo(); }
     void redo() override { m_editor->redo(); }
     bool canUndo() const override { return m_editor->document()->isUndoAvailable(); }

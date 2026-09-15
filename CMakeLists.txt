@@ -39,6 +39,8 @@ set(SOURCES
     src/CodeEditorWidget.h
     src/PythonHighlighter.cpp
     src/PythonHighlighter.h
+    src/CSharpHighlighter.cpp
+    src/CSharpHighlighter.h
     src/TabWidget.cpp
     src/TabWidget.h
     src/EditorBase.h

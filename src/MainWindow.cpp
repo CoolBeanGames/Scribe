@@ -101,6 +101,10 @@ void MainWindow::setupMenuBar()
 
     QMenu* codeMenu = newMenu->addMenu("Code");
     m_actNewPy = codeMenu->addAction(".py");
+    m_actNewCs = codeMenu->addAction(".cs");
+    m_actNewJson = codeMenu->addAction(".json");
+    m_actNewHtml = codeMenu->addAction(".html");
+    m_actNewCss = codeMenu->addAction(".css");
     
     QMenu* richTextMenu = newMenu->addMenu("Rich Text");
     m_actNewStxt = richTextMenu->addAction(".stxt");
@@ -146,7 +150,11 @@ void MainWindow::setupMenuBar()
     // ── Connect actions ───────────────────────────────────────────────────
     connect(m_actNewTxt, &QAction::triggered, this, &MainWindow::newPlainText);
     connect(m_actNewMd, &QAction::triggered, this, &MainWindow::newPlainText);
-    connect(m_actNewPy, &QAction::triggered, this, &MainWindow::newCodeEditor);
+    connect(m_actNewPy, &QAction::triggered, this, [this]() { newCodeEditor(CodeLanguage::Python); });
+    connect(m_actNewCs, &QAction::triggered, this, [this]() { newCodeEditor(CodeLanguage::CSharp); });
+    connect(m_actNewJson, &QAction::triggered, this, [this]() { newCodeEditor(CodeLanguage::Json); });
+    connect(m_actNewHtml, &QAction::triggered, this, [this]() { newCodeEditor(CodeLanguage::Html); });
+    connect(m_actNewCss, &QAction::triggered, this, [this]() { newCodeEditor(CodeLanguage::Css); });
     connect(m_actNewStxt, &QAction::triggered, this, &MainWindow::newRichText);
     connect(m_actNewRtf, &QAction::triggered, this, &MainWindow::newRichText);
     connect(m_actNewDocx, &QAction::triggered, this, &MainWindow::newRichText);
@@ -466,9 +474,10 @@ void MainWindow::newSpreadsheet()
     updateWindowTitle(editor);
 }
 
-void MainWindow::newCodeEditor()
+void MainWindow::newCodeEditor(CodeLanguage lang)
 {
     auto* editor = new CodeEditor(this);
+    editor->setLanguage(lang);
     m_tabWidget->addEditor(editor);
     updateWindowTitle(editor);
 }
@@ -632,6 +641,27 @@ void MainWindow::saveCurrentFileAs()
         filter = "Scribe Spreadsheet (*.scht);;CSV Spreadsheet (*.csv);;All Files (*)";
         defaultExt = ".scht";
         break;
+    case DocumentType::Code: {
+        auto* codeEditor = qobject_cast<CodeEditor*>(editor->widget());
+        CodeLanguage lang = codeEditor ? codeEditor->language() : CodeLanguage::Python;
+        if (lang == CodeLanguage::CSharp) {
+            filter = "C# Source (*.cs);;All Files (*)";
+            defaultExt = ".cs";
+        } else if (lang == CodeLanguage::Json) {
+            filter = "JSON Document (*.json);;All Files (*)";
+            defaultExt = ".json";
+        } else if (lang == CodeLanguage::Html) {
+            filter = "HTML Document (*.html *.htm);;All Files (*)";
+            defaultExt = ".html";
+        } else if (lang == CodeLanguage::Css) {
+            filter = "CSS Stylesheet (*.css);;All Files (*)";
+            defaultExt = ".css";
+        } else {
+            filter = "Python Source (*.py);;C++ Source (*.cpp *.h);;JavaScript (*.js);;All Files (*)";
+            defaultExt = ".py";
+        }
+        break;
+    }
     }
 
     QString suggestedPath = editor->filePath();

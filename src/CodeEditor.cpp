@@ -22,8 +22,25 @@ CodeEditor::CodeEditor(QWidget* parent) : QWidget(parent) {
 }
 
 QString CodeEditor::displayName() const {
-    if (m_filePath.isEmpty()) return "Untitled.py";
+    if (m_filePath.isEmpty()) {
+        switch (m_editor->language()) {
+        case CodeLanguage::CSharp: return "Untitled.cs";
+        case CodeLanguage::Json:   return "Untitled.json";
+        case CodeLanguage::Html:   return "Untitled.html";
+        case CodeLanguage::Css:    return "Untitled.css";
+        case CodeLanguage::Python:
+        default:                   return "Untitled.py";
+        }
+    }
     return QFileInfo(m_filePath).fileName();
+}
+
+void CodeEditor::setLanguage(CodeLanguage lang) {
+    m_editor->setLanguage(lang);
+}
+
+CodeLanguage CodeEditor::language() const {
+    return m_editor->language();
 }
 
 bool CodeEditor::saveFile() {
@@ -50,6 +67,20 @@ bool CodeEditor::loadFile(const QString& path) {
     m_editor->setPlainText(in.readAll());
     m_filePath = path;
     setModified(false);
+
+    QString ext = QFileInfo(path).suffix().toLower();
+    if (ext == "cs") {
+        setLanguage(CodeLanguage::CSharp);
+    } else if (ext == "json") {
+        setLanguage(CodeLanguage::Json);
+    } else if (ext == "html" || ext == "htm") {
+        setLanguage(CodeLanguage::Html);
+    } else if (ext == "css") {
+        setLanguage(CodeLanguage::Css);
+    } else {
+        setLanguage(CodeLanguage::Python);
+    }
+
     // Force the highlighter to re-scan the whole document now that text is loaded
     m_editor->document()->setModified(false);
     return true;

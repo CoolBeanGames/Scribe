@@ -1,4 +1,6 @@
 #include "CodeEditorWidget.h"
+#include "PythonHighlighter.h"
+#include "CSharpHighlighter.h"
 #include <QPainter>
 #include <QTextBlock>
 #include <QPalette>
@@ -38,7 +40,6 @@ CodeEditorWidget::CodeEditorWidget(QWidget *parent) : QPlainTextEdit(parent) {
     updateLineNumberAreaWidth(0);
     highlightCurrentLine();
 
-    highlighter = new PythonHighlighter(this->document());
     setTabStopDistance(QFontMetricsF(codeFont).horizontalAdvance(' ') * 4);
 
     // Setup autocomplete
@@ -48,7 +49,31 @@ CodeEditorWidget::CodeEditorWidget(QWidget *parent) : QPlainTextEdit(parent) {
     comp->setWrapAround(false);
     setCompleter(comp);
 
+    setLanguage(CodeLanguage::Python);
+
     connect(this, &QPlainTextEdit::textChanged, this, &CodeEditorWidget::updateCompleterWords);
+    updateCompleterWords();
+}
+
+void CodeEditorWidget::setLanguage(CodeLanguage lang) {
+    if (m_highlighter && m_language == lang) return;
+    m_language = lang;
+
+    if (m_highlighter) {
+        delete m_highlighter;
+        m_highlighter = nullptr;
+    }
+
+    switch (m_language) {
+    case CodeLanguage::CSharp:
+        m_highlighter = new CSharpHighlighter(this->document());
+        break;
+    case CodeLanguage::Python:
+    default:
+        m_highlighter = new PythonHighlighter(this->document());
+        break;
+    }
+
     updateCompleterWords();
 }
 
@@ -162,7 +187,12 @@ void CodeEditorWidget::keyPressEvent(QKeyEvent* e) {
             else if (c == '\t') spaceCount += 4;
             else break;
         }
-        if (currentLine.trimmed().endsWith(':')) spaceCount += 4; // Python auto-indent
+        QString trimmed = currentLine.trimmed();
+        if (m_language == CodeLanguage::Python && trimmed.endsWith(':')) {
+            spaceCount += 4;
+        } else if ((m_language == CodeLanguage::CSharp || m_language == CodeLanguage::Generic) && trimmed.endsWith('{')) {
+            spaceCount += 4;
+        }
         if (spaceCount > 0) {
             insertPlainText(QString(spaceCount, ' '));
         }
@@ -281,7 +311,43 @@ void CodeEditorWidget::updateCompleterWords()
         "Exception", "ValueError", "TypeError", "RuntimeError", "KeyError", "IndexError"
     };
 
-    QSet<QString> wordSet(pythonKeywords.begin(), pythonKeywords.end());
+    static const QStringList csharpKeywords = {
+        // Keywords
+        "abstract", "as", "base", "bool", "break", "byte", "case", "catch", "char",
+        "checked", "class", "const", "continue", "decimal", "default", "delegate",
+        "do", "double", "else", "enum", "event", "explicit", "extern", "false",
+        "finally", "fixed", "float", "for", "foreach", "goto", "if", "implicit",
+        "in", "int", "interface", "internal", "is", "lock", "long", "namespace",
+        "new", "null", "object", "operator", "out", "override", "params",
+        "private", "protected", "public", "readonly", "record", "ref", "return",
+        "sbyte", "sealed", "short", "sizeof", "stackalloc", "static", "string",
+        "struct", "switch", "this", "throw", "true", "try", "typeof", "uint",
+        "ulong", "unchecked", "unsafe", "ushort", "using", "virtual", "void",
+        "volatile", "while", "yield", "async", "await", "var", "dynamic",
+        "get", "set", "init", "value", "when", "where", "with", "global", "partial",
+        // Common BCL Types and Global Commands
+        "Console", "WriteLine", "Write", "ReadLine", "ReadKey", "Clear",
+        "Math", "Abs", "Min", "Max", "Round", "Sqrt", "Pow", "Sin", "Cos",
+        "String", "IsNullOrEmpty", "IsNullOrWhiteSpace", "Join", "Format", "Concat",
+        "List", "Dictionary", "HashSet", "Queue", "Stack", "IEnumerable", "IList", "IDictionary",
+        "Task", "Run", "WhenAll", "WhenAny", "Delay", "FromResult",
+        "Action", "Func", "Predicate", "EventHandler",
+        "DateTime", "Now", "UtcNow", "Today", "TimeSpan", "FromSeconds", "FromMinutes", "FromHours", "FromDays",
+        "Guid", "NewGuid", "Convert", "ToInt32", "ToString", "ToDouble", "ToBoolean",
+        "File", "ReadAllText", "WriteAllText", "ReadAllLines", "WriteAllLines", "Exists", "Delete",
+        "Directory", "CreateDirectory", "GetFiles", "GetDirectories",
+        "Path", "Combine", "GetFileName", "GetExtension", "GetDirectoryName",
+        "Stream", "StreamReader", "StreamWriter", "MemoryStream", "FileStream",
+        "StringBuilder", "Thread", "Sleep", "Array", "Exception",
+        "ArgumentNullException", "ArgumentException", "InvalidOperationException", "NotImplementedException"
+    };
+
+    QSet<QString> wordSet;
+    if (m_language == CodeLanguage::CSharp) {
+        wordSet = QSet<QString>(csharpKeywords.begin(), csharpKeywords.end());
+    } else {
+        wordSet = QSet<QString>(pythonKeywords.begin(), pythonKeywords.end());
+    }
 
     // Extract all identifier words from current document
     QString docText = toPlainText();

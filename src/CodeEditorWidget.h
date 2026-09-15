@@ -3,9 +3,18 @@
 #include <QWidget>
 #include <QPaintEvent>
 #include <QResizeEvent>
-#include "PythonHighlighter.h"
+#include <QSyntaxHighlighter>
 
 class QCompleter;
+
+enum class CodeLanguage {
+    Python,
+    CSharp,
+    Json,
+    Html,
+    Css,
+    Generic
+};
 
 class CodeEditorWidget : public QPlainTextEdit {
     Q_OBJECT
@@ -16,6 +25,9 @@ public:
 
     void setCompleter(QCompleter *completer);
     QCompleter *completer() const;
+
+    void setLanguage(CodeLanguage lang);
+    CodeLanguage language() const { return m_language; }
 
 protected:
     void resizeEvent(QResizeEvent *event) override;
@@ -32,9 +44,10 @@ private slots:
 private:
     QString textUnderCursor() const;
 
-    QWidget *lineNumberArea;
-    PythonHighlighter *highlighter;
+    QWidget *lineNumberArea = nullptr;
+    QSyntaxHighlighter *m_highlighter = nullptr;
     QCompleter *m_completer = nullptr;
+    CodeLanguage m_language = CodeLanguage::Python;
 };
 
 class LineNumberArea : public QWidget {

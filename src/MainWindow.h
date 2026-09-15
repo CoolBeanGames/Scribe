@@ -38,6 +38,10 @@ private:
     QAction* m_actNewTxt = nullptr;
     QAction* m_actNewMd = nullptr;
     QAction* m_actNewPy = nullptr;
+    QAction* m_actNewCs = nullptr;
+    QAction* m_actNewJson = nullptr;
+    QAction* m_actNewHtml = nullptr;
+    QAction* m_actNewCss = nullptr;
     QAction* m_actRunCode = nullptr;
     QAction* m_actNewStxt = nullptr;
     QAction* m_actNewRtf = nullptr;
@@ -97,7 +101,7 @@ private:
     void newPlainText();
     void newRichText();
     void newSpreadsheet();
-    void newCodeEditor();
+    void newCodeEditor(CodeLanguage lang = CodeLanguage::Python);
     void runCurrentCode();
     void openFile();
     
