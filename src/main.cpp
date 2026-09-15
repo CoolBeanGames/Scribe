@@ -27,6 +27,10 @@ int main(int argc, char* argv[])
         FileAssociations::registerAll();
         return 0;
     }
+    if (args.contains("--set-default") || args.contains("--default")) {
+        FileAssociations::setAllAsDefault();
+        return 0;
+    }
 
 #ifdef _WIN32
     // Automatically ensure Scribe capabilities and file associations are registered in Windows

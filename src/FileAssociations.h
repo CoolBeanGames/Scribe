@@ -14,6 +14,8 @@ public:
     static QList<FileTypeAssociation> supportedTypes();
     static bool registerAll(const QString& exePath = QString());
     static bool registerTypes(const QList<QString>& extensions, const QString& exePath = QString());
+    static bool setAsDefault(const QList<QString>& extensions, const QString& exePath = QString());
+    static bool setAllAsDefault(const QString& exePath = QString());
     static bool isTypeRegistered(const QString& extension);
     static bool isTypeDefault(const QString& extension);
     static bool launchAdvancedAssociationUI();

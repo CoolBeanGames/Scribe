@@ -59,7 +59,7 @@ add_executable(Scribe WIN32 ${SOURCES})
 
 target_link_libraries(Scribe PRIVATE ${QT_LIBS})
 if(WIN32)
-    target_link_libraries(Scribe PRIVATE shell32 advapi32 ole32)
+    target_link_libraries(Scribe PRIVATE shell32 advapi32 ole32 shlwapi)
 endif()
 
 target_include_directories(Scribe PRIVATE src)

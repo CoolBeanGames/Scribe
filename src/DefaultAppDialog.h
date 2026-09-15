@@ -13,6 +13,7 @@ public:
 private slots:
     void onSelectAll();
     void onSelectNone();
+    void onSetAsDefault();
     void onRegister();
     void onOpenWindowsSettings();
     void refreshStatuses();
@@ -20,6 +21,7 @@ private slots:
 private:
     QTableWidget* m_table = nullptr;
     QLabel* m_statusLabel = nullptr;
+    QPushButton* m_btnSetDefault = nullptr;
     QPushButton* m_btnRegister = nullptr;
     QPushButton* m_btnSettings = nullptr;
     QList<FileTypeAssociation> m_types;
