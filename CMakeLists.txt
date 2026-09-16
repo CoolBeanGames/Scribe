@@ -78,8 +78,33 @@ if(WIN32)
     set_target_properties(Scribe PROPERTIES
         WIN32_EXECUTABLE TRUE
     )
-endif()
 
-# Post-build: deploy Qt DLLs (optional, run windeployqt manually if needed)
+    # Keep every Windows build directly launchable from its output directory.
+    # Resolve windeployqt beside the qmake imported by the selected Qt package so
+    # Debug builds receive debug DLLs and Release builds receive release DLLs.
+    if(QT_VERSION_MAJOR EQUAL 6)
+        get_target_property(QT_QMAKE_EXECUTABLE Qt6::qmake IMPORTED_LOCATION)
+    else()
+        get_target_property(QT_QMAKE_EXECUTABLE Qt5::qmake IMPORTED_LOCATION)
+    endif()
+
+    get_filename_component(QT_BIN_DIRECTORY "${QT_QMAKE_EXECUTABLE}" DIRECTORY)
+    find_program(WINDEPLOYQT_EXECUTABLE
+        NAMES windeployqt
+        HINTS "${QT_BIN_DIRECTORY}"
+        NO_DEFAULT_PATH
+    )
+    if(NOT WINDEPLOYQT_EXECUTABLE)
+        message(FATAL_ERROR "windeployqt was not found beside ${QT_QMAKE_EXECUTABLE}")
+    endif()
+
+    add_custom_command(TARGET Scribe POST_BUILD
+        COMMAND "${WINDEPLOYQT_EXECUTABLE}"
+                --no-translations
+                "$<TARGET_FILE:Scribe>"
+        COMMENT "Deploying Qt runtime dependencies"
+        VERBATIM
+    )
+endif()
 
 
