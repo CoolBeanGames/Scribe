@@ -15,6 +15,7 @@
 #include <QMessageBox>
 #include <QTableWidgetItem>
 #include <QApplication>
+#include <QSignalBlocker>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
@@ -157,8 +158,9 @@ bool SpreadsheetEditor::loadFile(const QString& path)
     QByteArray rawData = file.readAll();
     file.close();
 
-    // Disconnect to avoid false modification signals while loading
-    disconnect(m_table, &QTableWidget::cellChanged, this, &SpreadsheetEditor::onCellChanged);
+    // Batch the model update so large files do not repaint or emit a change per cell.
+    const QSignalBlocker signalBlocker(m_table);
+    m_table->setUpdatesEnabled(false);
     m_table->clearContents();
 
     QString ext = QFileInfo(path).suffix().toLower();
@@ -167,8 +169,8 @@ bool SpreadsheetEditor::loadFile(const QString& path)
         QJsonDocument doc = QJsonDocument::fromJson(rawData, &parseErr);
         if (!doc.isNull() && doc.isObject()) {
             QJsonObject root = doc.object();
-            int rows = root.value("rowCount").toInt(50);
-            int cols = root.value("columnCount").toInt(26);
+            int rows = qMax(1, root.value("rowCount").toInt(50));
+            int cols = qMax(1, root.value("columnCount").toInt(26));
             m_table->setRowCount(rows);
             m_table->setColumnCount(cols);
             for (int r = 0; r < rows; ++r) {
@@ -177,6 +179,7 @@ bool SpreadsheetEditor::loadFile(const QString& path)
             updateColumnHeaders();
 
             QJsonArray cells = root.value("cells").toArray();
+            QList<QTableWidgetItem*> formulaItems;
             for (const auto& cVal : cells) {
                 QJsonObject cObj = cVal.toObject();
                 int r = cObj.value("row").toInt(-1);
@@ -184,6 +187,10 @@ bool SpreadsheetEditor::loadFile(const QString& path)
                 if (r >= 0 && r < rows && c >= 0 && c < cols) {
                     QString text = cObj.value("text").toString();
                     auto* item = new QTableWidgetItem(text);
+                    if (text.startsWith('=')) {
+                        item->setData(Qt::UserRole, text);
+                        formulaItems.append(item);
+                    }
                     if (cObj.contains("bg")) {
                         item->setBackground(QColor(cObj.value("bg").toString()));
                     }
@@ -193,13 +200,29 @@ bool SpreadsheetEditor::loadFile(const QString& path)
                     if (cObj.contains("align")) {
                         item->setTextAlignment(cObj.value("align").toInt());
                     }
+                    if (cObj.value("bold").toBool(false)) {
+                        QFont font = item->font();
+                        font.setBold(true);
+                        item->setFont(font);
+                    }
                     m_table->setItem(r, c, item);
                 }
             }
 
-            connect(m_table, &QTableWidget::cellChanged, this, &SpreadsheetEditor::onCellChanged);
+            // Evaluate after every stored cell exists so references can resolve.
+            for (QTableWidgetItem* item : formulaItems) {
+                const QString formula = item->data(Qt::UserRole).toString();
+                const QString upper = formula.toUpper();
+                const double value = evaluateExpression(formula);
+                item->setText((upper.startsWith("=BOLD(") || upper.startsWith("=BG_COLOR("))
+                    ? (value > 0.5 ? "TRUE" : "FALSE")
+                    : QString::number(value));
+            }
+
             setFilePath(path);
             setModified(false);
+            m_table->setUpdatesEnabled(true);
+            m_table->viewport()->update();
             return true;
         }
     }
@@ -208,31 +231,34 @@ bool SpreadsheetEditor::loadFile(const QString& path)
     QTextStream stream(&rawData);
     stream.setEncoding(QStringConverter::Utf8);
 
-    int row = 0;
+    QList<QStringList> csvRows;
+    int maxColumns = 0;
     while (!stream.atEnd()) {
-        QString line = stream.readLine();
-        QStringList fields = parseCsvLine(line);
+        QStringList fields = parseCsvLine(stream.readLine());
+        maxColumns = qMax(maxColumns, fields.size());
+        csvRows.append(fields);
+    }
 
-        if (row >= m_table->rowCount()) {
-            m_table->setRowCount(row + 1);
-            m_table->setVerticalHeaderItem(row, new QTableWidgetItem(QString::number(row + 1)));
-        }
-        if (fields.count() > m_table->columnCount()) {
-            m_table->setColumnCount(fields.count());
-            updateColumnHeaders();
-        }
-
+    const int rowCount = qMax(50, csvRows.size());
+    const int columnCount = qMax(26, maxColumns);
+    m_table->setRowCount(rowCount);
+    m_table->setColumnCount(columnCount);
+    for (int row = 0; row < rowCount; ++row) {
+        m_table->setVerticalHeaderItem(row, new QTableWidgetItem(QString::number(row + 1)));
+    }
+    updateColumnHeaders();
+    for (int row = 0; row < csvRows.size(); ++row) {
+        const QStringList& fields = csvRows.at(row);
         for (int col = 0; col < fields.count(); ++col) {
             auto* item = new QTableWidgetItem(fields[col]);
             m_table->setItem(row, col, item);
         }
-        ++row;
     }
-
-    connect(m_table, &QTableWidget::cellChanged, this, &SpreadsheetEditor::onCellChanged);
 
     setFilePath(path);
     setModified(false);
+    m_table->setUpdatesEnabled(true);
+    m_table->viewport()->update();
     return true;
 }
 
@@ -273,16 +299,19 @@ bool SpreadsheetEditor::saveFileAs(const QString& path)
                 bool hasText = !rawText.isEmpty();
                 bool hasBg = item->background().color().isValid() && item->background() != Qt::NoBrush;
                 bool hasFg = item->foreground().color().isValid() && item->foreground() != Qt::NoBrush;
-                if (hasText || hasBg || hasFg) {
+                bool hasAlignment = item->textAlignment() != (Qt::AlignLeft | Qt::AlignVCenter);
+                bool hasBold = item->font().bold();
+                if (hasText || hasBg || hasFg || hasAlignment || hasBold) {
                     QJsonObject cObj;
                     cObj["row"] = r;
                     cObj["col"] = c;
                     if (hasText) cObj["text"] = rawText;
                     if (hasBg) cObj["bg"] = item->background().color().name(QColor::HexArgb);
                     if (hasFg) cObj["fg"] = item->foreground().color().name(QColor::HexArgb);
-                    if (item->textAlignment() != (Qt::AlignLeft | Qt::AlignVCenter)) {
+                    if (hasAlignment) {
                         cObj["align"] = static_cast<int>(item->textAlignment());
                     }
+                    if (hasBold) cObj["bold"] = true;
                     cells.append(cObj);
                 }
             }
@@ -312,22 +341,27 @@ bool SpreadsheetEditor::saveFileAs(const QString& path)
     QTextStream stream(&file);
     stream.setEncoding(QStringConverter::Utf8);
 
+    int lastUsedRow = -1;
+    int lastUsedColumn = -1;
     for (int r = 0; r < m_table->rowCount(); ++r) {
-        QStringList row;
-        bool anyData = false;
         for (int c = 0; c < m_table->columnCount(); ++c) {
+            QTableWidgetItem* item = m_table->item(r, c);
+            if (item && !item->text().isEmpty()) {
+                lastUsedRow = qMax(lastUsedRow, r);
+                lastUsedColumn = qMax(lastUsedColumn, c);
+            }
+        }
+    }
+
+    for (int r = 0; r <= lastUsedRow; ++r) {
+        QStringList row;
+        for (int c = 0; c <= lastUsedColumn; ++c) {
             QTableWidgetItem* item = m_table->item(r, c);
             QString val = item ? item->text() : QString();
             row << toCsvField(val);
-            if (!val.isEmpty()) anyData = true;
         }
-        if (anyData) {
-            // Trim trailing empty fields
-            while (!row.isEmpty() && row.last() == "") row.removeLast();
-            stream << row.join(",") << "\n";
-        } else {
-            stream << "\n";
-        }
+        while (!row.isEmpty() && row.last().isEmpty()) row.removeLast();
+        stream << row.join(",") << "\n";
     }
 
     stream.flush();
@@ -655,6 +689,8 @@ void SpreadsheetEditor::exitFormulaMode(bool apply) {
         }
         QString fText = m_formulaBar->text().trimmed();
         QString upper = fText.toUpper();
+        const QSignalBlocker signalBlocker(m_table);
+        item->setData(Qt::UserRole, fText);
         if (upper.startsWith("=BOLD(") || upper.startsWith("=BG_COLOR(")) {
             double val = evaluateExpression(fText);
             item->setText(val > 0.5 ? "TRUE" : "FALSE");
