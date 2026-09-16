@@ -16,14 +16,14 @@ DefaultAppDialog::DefaultAppDialog(QWidget* parent)
     mainLayout->setSpacing(14);
 
     auto* titleLabel = new QLabel("Windows File Associations", this);
-    titleLabel->setStyleSheet("font-size: 15px; font-weight: 600; color: #F4F6FA;");
+    titleLabel->setObjectName("DialogTitle");
     mainLayout->addWidget(titleLabel);
 
     auto* descLabel = new QLabel(
         "Choose file types to open directly with Scribe as the default Windows application, "
         "or register Scribe in the Windows 'Open with' menu.", this);
     descLabel->setWordWrap(true);
-    descLabel->setStyleSheet("color: #8A95A8; font-size: 12px; margin-bottom: 4px;");
+    descLabel->setObjectName("DialogDescription");
     mainLayout->addWidget(descLabel);
 
     // Table of file types
@@ -38,11 +38,7 @@ DefaultAppDialog::DefaultAppDialog(QWidget* parent)
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_table->setSelectionMode(QAbstractItemView::SingleSelection);
     m_table->setShowGrid(false);
-    m_table->setStyleSheet(
-        "QTableWidget { background-color: #12151C; border: 1px solid #262C38; border-radius: 6px; } "
-        "QHeaderView::section { background-color: #161A22; color: #ABB2BF; padding: 6px; border: none; border-bottom: 1px solid #262C38; } "
-        "QTableWidget::item { padding: 4px 8px; color: #F4F6FA; } "
-        "QTableWidget::item:selected { background-color: #2D3A52; }");
+    m_table->setObjectName("DefaultAppsTable");
 
     m_types = FileAssociations::supportedTypes();
     m_table->setRowCount(m_types.size());
@@ -74,8 +70,8 @@ DefaultAppDialog::DefaultAppDialog(QWidget* parent)
     auto* selLayout = new QHBoxLayout();
     auto* btnSelectAll = new QPushButton("Select All", this);
     auto* btnSelectNone = new QPushButton("Select None", this);
-    btnSelectAll->setStyleSheet("background-color: #1D222C; border: 1px solid #262C38; padding: 5px 12px; border-radius: 4px; color: #F4F6FA;");
-    btnSelectNone->setStyleSheet("background-color: #1D222C; border: 1px solid #262C38; padding: 5px 12px; border-radius: 4px; color: #F4F6FA;");
+    btnSelectAll->setObjectName("CompactButton");
+    btnSelectNone->setObjectName("CompactButton");
     connect(btnSelectAll, &QPushButton::clicked, this, &DefaultAppDialog::onSelectAll);
     connect(btnSelectNone, &QPushButton::clicked, this, &DefaultAppDialog::onSelectNone);
     selLayout->addWidget(btnSelectAll);
@@ -85,7 +81,7 @@ DefaultAppDialog::DefaultAppDialog(QWidget* parent)
 
     // Status label
     m_statusLabel = new QLabel(this);
-    m_statusLabel->setStyleSheet("color: #8B7CFF; font-size: 12px;");
+    m_statusLabel->setObjectName("DialogStatus");
     mainLayout->addWidget(m_statusLabel);
 
     // Action button row
@@ -93,33 +89,24 @@ DefaultAppDialog::DefaultAppDialog(QWidget* parent)
     btnLayout->setSpacing(10);
 
     m_btnSetDefault = new QPushButton("Set as Default Application", this);
-    m_btnSetDefault->setStyleSheet(
-        "QPushButton { background-color: #8B7CFF; color: #0B0D12; font-weight: 600; padding: 8px 16px; border-radius: 6px; border: none; } "
-        "QPushButton:hover { background-color: #9D91FF; } "
-        "QPushButton:pressed { background-color: #796AE8; }");
+    m_btnSetDefault->setObjectName("PrimaryButton");
     connect(m_btnSetDefault, &QPushButton::clicked, this, &DefaultAppDialog::onSetAsDefault);
     btnLayout->addWidget(m_btnSetDefault);
 
     m_btnRegister = new QPushButton("Register in 'Open with' Menu", this);
-    m_btnRegister->setStyleSheet(
-        "QPushButton { background-color: #1D222C; color: #F4F6FA; border: 1px solid #262C38; padding: 8px 16px; border-radius: 6px; } "
-        "QPushButton:hover { background-color: #262C38; }");
+    m_btnRegister->setObjectName("SecondaryButton");
     connect(m_btnRegister, &QPushButton::clicked, this, &DefaultAppDialog::onRegister);
     btnLayout->addWidget(m_btnRegister);
 
     m_btnSettings = new QPushButton("Windows Settings", this);
-    m_btnSettings->setStyleSheet(
-        "QPushButton { background-color: #1D222C; color: #ABB2BF; border: 1px solid #262C38; padding: 8px 14px; border-radius: 6px; } "
-        "QPushButton:hover { background-color: #262C38; color: #F4F6FA; }");
+    m_btnSettings->setObjectName("SecondaryButton");
     connect(m_btnSettings, &QPushButton::clicked, this, &DefaultAppDialog::onOpenWindowsSettings);
     btnLayout->addWidget(m_btnSettings);
 
     btnLayout->addStretch();
 
     auto* btnClose = new QPushButton("Close", this);
-    btnClose->setStyleSheet(
-        "QPushButton { background-color: #1D222C; color: #ABB2BF; border: 1px solid #262C38; padding: 8px 16px; border-radius: 6px; } "
-        "QPushButton:hover { background-color: #262C38; color: #F4F6FA; }");
+    btnClose->setObjectName("SecondaryButton");
     connect(btnClose, &QPushButton::clicked, this, &QDialog::accept);
     btnLayout->addWidget(btnClose);
 

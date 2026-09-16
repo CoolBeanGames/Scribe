@@ -56,6 +56,10 @@ QToolButton:pressed, QToolButton:checked {
 QToolButton:disabled {
     color: #333842;
 }
+QToolButton:focus {
+    border: 1px solid #8B7CFF;
+    background-color: #161A22;
+}
 
 /* Menu */
 QMenuBar {
@@ -123,7 +127,16 @@ QTabBar::tab:hover:!selected {
     color: #F4F6FA;
 }
 QTabBar::close-button {
-    image: none; /* Can be stylized if needed */
+    width: 14px;
+    height: 14px;
+    margin-left: 6px;
+}
+QTabBar::close-button:hover {
+    background-color: #343A48;
+    border-radius: 4px;
+}
+QTabBar:focus QTabBar::tab:selected {
+    border: 2px solid #9E91FF;
 }
 
 /* Empty workspace */
@@ -148,14 +161,6 @@ QTabBar::close-button {
 #WelcomeSubtitle, #RecentEmptyLabel {
     color: #8A95A8;
     font-size: 13px;
-}
-#WelcomePrimaryButton {
-    background-color: #8B7CFF;
-    color: #FFFFFF;
-    border: 1px solid #8B7CFF;
-}
-#WelcomePrimaryButton:hover {
-    background-color: #9E91FF;
 }
 #RecentFilesList {
     background-color: #0E1117;
@@ -185,6 +190,9 @@ QPlainTextEdit, QTextEdit, QTableWidget {
     padding: 8px;
     selection-background-color: #2D3A52;
     selection-color: #F4F6FA;
+}
+QPlainTextEdit:focus, QTextEdit:focus, QTableWidget:focus, QListWidget:focus {
+    border: 1px solid #8B7CFF;
 }
 QPlainTextEdit, QTextEdit {
     font-family: "Cascadia Code", "Consolas", monospace;
@@ -296,6 +304,13 @@ QComboBox {
 QComboBox:hover {
     border-color: #3A4455;
 }
+QComboBox:focus {
+    border-color: #8B7CFF;
+}
+QComboBox:disabled {
+    background-color: #12151C;
+    color: #4A5568;
+}
 QComboBox::drop-down {
     border: none;
     width: 24px;
@@ -323,6 +338,8 @@ QSpinBox {
     min-height: 26px;
 }
 QSpinBox:hover { border-color: #3A4455; }
+QSpinBox:focus { border-color: #8B7CFF; }
+QSpinBox:disabled { color: #4A5568; background-color: #12151C; }
 QSpinBox::up-button, QSpinBox::down-button {
     background: transparent;
     border: none;
@@ -347,6 +364,15 @@ QPushButton:pressed {
     background-color: #2D3A52;
     border-color: #8B7CFF;
 }
+QPushButton:focus {
+    border: 2px solid #9E91FF;
+    padding: 5px 15px;
+}
+QPushButton:disabled {
+    background-color: #12151C;
+    color: #4A5568;
+    border-color: #1E232E;
+}
 QPushButton:default {
     background-color: #8B7CFF;
     color: #FFFFFF;
@@ -355,6 +381,39 @@ QPushButton:default {
 QPushButton:default:hover {
     background-color: #9E91FF;
 }
+
+#PrimaryButton, #WelcomePrimaryButton {
+    background-color: #8B7CFF;
+    color: #FFFFFF;
+    border-color: #8B7CFF;
+    font-weight: 600;
+}
+#PrimaryButton:hover, #WelcomePrimaryButton:hover {
+    background-color: #9E91FF;
+}
+#PrimaryButton:pressed, #WelcomePrimaryButton:pressed {
+    background-color: #796AE8;
+}
+#SecondaryButton {
+    background-color: #1D222C;
+    color: #ABB2BF;
+}
+#CompactButton {
+    min-height: 24px;
+    padding: 4px 12px;
+}
+
+QLineEdit {
+    background-color: #161A22;
+    color: #F4F6FA;
+    border: 1px solid #262C38;
+    border-radius: 6px;
+    padding: 6px 9px;
+    selection-background-color: #2D3A52;
+}
+QLineEdit:hover { border-color: #3A4455; }
+QLineEdit:focus { border-color: #8B7CFF; }
+QLineEdit:disabled { color: #4A5568; background-color: #12151C; }
 
 /* Dialogs */
 QDialog {
@@ -365,6 +424,23 @@ QDialog {
 QLabel {
     color: #F4F6FA;
     background: transparent;
+}
+#DialogTitle {
+    color: #F4F6FA;
+    font-size: 18px;
+    font-weight: 650;
+}
+#DialogDescription {
+    color: #8A95A8;
+    font-size: 12px;
+}
+#DialogStatus {
+    color: #8B7CFF;
+    font-size: 12px;
+}
+#DefaultAppsTable {
+    margin: 0;
+    border-radius: 8px;
 }
 
 /* Completer Popup */
