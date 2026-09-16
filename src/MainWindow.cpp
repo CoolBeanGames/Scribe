@@ -26,6 +26,7 @@
 #include <QPrinter>
 #include <QPrintDialog>
 #include <QTextDocument>
+#include <QTextCursor>
 #include <QSettings>
 #include <QSet>
 #include <QDialog>
@@ -333,24 +334,24 @@ void MainWindow::setupMainToolbar()
     connect(m_actRunCode, &QAction::triggered, this, &MainWindow::runCurrentCode);
     m_mainToolbar->addAction(m_actRunCode);
 
-    QAction* open = m_mainToolbar->addAction(ScribeIcons::openIcon(), "Open");
-    QAction* save = m_mainToolbar->addAction(ScribeIcons::saveIcon(), "Save");
-    m_actPrintToolbar = m_mainToolbar->addAction(ScribeIcons::printIcon(), "Print");
+    m_actOpen->setIcon(ScribeIcons::openIcon());
+    m_actSave->setIcon(ScribeIcons::saveIcon());
+    m_actPrint->setIcon(ScribeIcons::printIcon());
+    m_actUndo->setIcon(ScribeIcons::undoIcon());
+    m_actRedo->setIcon(ScribeIcons::redoIcon());
+    m_mainToolbar->addAction(m_actOpen);
+    m_mainToolbar->addAction(m_actSave);
+    m_actPrintToolbar = m_actPrint;
+    m_mainToolbar->addAction(m_actPrintToolbar);
     m_mainToolbar->addSeparator();
-    QAction* undo = m_mainToolbar->addAction(ScribeIcons::undoIcon(), "Undo");
-    QAction* redo = m_mainToolbar->addAction(ScribeIcons::redoIcon(), "Redo");
+    m_mainToolbar->addAction(m_actUndo);
+    m_mainToolbar->addAction(m_actRedo);
 
-    open->setToolTip("Open File (Ctrl+O)");
-    save->setToolTip("Save (Ctrl+S)");
+    m_actOpen->setToolTip("Open File (Ctrl+O)");
+    m_actSave->setToolTip("Save (Ctrl+S)");
     m_actPrintToolbar->setToolTip("Print (Ctrl+P)");
-    undo->setToolTip("Undo (Ctrl+Z)");
-    redo->setToolTip("Redo (Ctrl+Y)");
-
-    connect(open, &QAction::triggered, this, qOverload<>(&MainWindow::openFile));
-    connect(save, &QAction::triggered, this, &MainWindow::saveCurrentFile);
-    connect(m_actPrintToolbar, &QAction::triggered, this, &MainWindow::onPrint);
-    connect(undo, &QAction::triggered, this, &MainWindow::onUndoAction);
-    connect(redo, &QAction::triggered, this, &MainWindow::onRedoAction);
+    m_actUndo->setToolTip("Undo (Ctrl+Z)");
+    m_actRedo->setToolTip("Redo (Ctrl+Y)");
 }
 
 // ---------------------------------------------------------------------------
@@ -600,6 +601,7 @@ void MainWindow::newPlainText()
 {
     auto* editor = new PlainTextEditor(this);
     m_tabWidget->addEditor(editor);
+    wireEditorFeedback(editor);
     updateWindowTitle(editor);
 }
 
@@ -610,6 +612,7 @@ void MainWindow::newRichText()
     connect(editor, &RichTextEditor::cursorPositionChanged,
             this, &MainWindow::syncFormatToolbar);
     m_tabWidget->addEditor(editor);
+    wireEditorFeedback(editor);
     updateWindowTitle(editor);
 }
 
@@ -617,6 +620,7 @@ void MainWindow::newSpreadsheet()
 {
     auto* editor = new SpreadsheetEditor(this);
     m_tabWidget->addEditor(editor);
+    wireEditorFeedback(editor);
     updateWindowTitle(editor);
 }
 
@@ -625,6 +629,7 @@ void MainWindow::newCodeEditor(CodeLanguage lang)
     auto* editor = new CodeEditor(this);
     editor->setLanguage(lang);
     m_tabWidget->addEditor(editor);
+    wireEditorFeedback(editor);
     updateWindowTitle(editor);
 }
 
@@ -851,6 +856,7 @@ void MainWindow::openFile(const QString& path)
     }
 
     m_tabWidget->addEditor(editor);
+    wireEditorFeedback(editor);
     addRecentFile(path);
     updateWindowTitle(editor);
 }
@@ -926,6 +932,7 @@ bool MainWindow::saveCurrentFileAs()
         addRecentFile(path);
         m_tabWidget->updateTabLabel(editor);
         updateWindowTitle(editor);
+        updateStatusBar(editor);
         if (m_tabWidget->isEditorPinned(editor)) savePinnedFiles();
         return true;
     }
@@ -1141,9 +1148,7 @@ void MainWindow::updateToolbarsForEditor(EditorBase* editor)
     m_sheetToolbar->setVisible(isSheet);
     m_actRunCode->setVisible(isCode);
 
-    // Undo/redo only for text editors
-    m_actUndo->setEnabled(!isSheet);
-    m_actRedo->setEnabled(!isSheet);
+    updateUndoRedoActions();
 
     if (isPlain) {
         syncTextToolbar();
@@ -1168,7 +1173,7 @@ void MainWindow::updateStatusBar(EditorBase* editor)
 {
     if (!editor) {
         m_actRunCode->setVisible(false);
-        m_statusBar->clearMessage();
+        m_statusBar->showMessage("Ready");
         return;
     }
     QString docType;
@@ -1176,10 +1181,56 @@ void MainWindow::updateStatusBar(EditorBase* editor)
     case DocumentType::PlainText:  docType = "Plain Text"; break;
     case DocumentType::RichText:   docType = "Rich Text";  break;
     case DocumentType::Spreadsheet:docType = "Spreadsheet";break;
+    case DocumentType::Code:       docType = "Code";       break;
     }
-    m_statusBar->showMessage(editor->filePath().isEmpty()
-        ? docType + " — Untitled"
-        : docType + " — " + editor->filePath());
+
+    QString status = editor->filePath().isEmpty()
+        ? docType + "  •  Untitled"
+        : docType + "  •  " + QFileInfo(editor->filePath()).fileName();
+
+    QTextCursor cursor;
+    bool hasTextCursor = false;
+    if (auto* plain = dynamic_cast<PlainTextEditor*>(editor)) {
+        cursor = plain->textCursor();
+        hasTextCursor = true;
+    } else if (auto* rich = dynamic_cast<RichTextEditor*>(editor)) {
+        cursor = rich->textEdit()->textCursor();
+        hasTextCursor = true;
+    } else if (auto* code = dynamic_cast<CodeEditor*>(editor)) {
+        cursor = code->editorWidget()->textCursor();
+        hasTextCursor = true;
+    }
+
+    if (hasTextCursor) {
+        status += QString("  •  Ln %1, Col %2")
+            .arg(cursor.blockNumber() + 1)
+            .arg(cursor.positionInBlock() + 1);
+        if (cursor.hasSelection()) {
+            status += QString("  •  %1 selected").arg(cursor.selectionEnd() - cursor.selectionStart());
+        }
+    } else if (auto* sheet = dynamic_cast<SpreadsheetEditor*>(editor)) {
+        QTableWidget* table = sheet->tableWidget();
+        const int row = table->currentRow();
+        const int column = table->currentColumn();
+        if (row >= 0 && column >= 0) {
+            QString columnName;
+            int value = column;
+            do {
+                columnName.prepend(QChar('A' + (value % 26)));
+                value = value / 26 - 1;
+            } while (value >= 0);
+            status += QString("  •  Cell %1%2").arg(columnName).arg(row + 1);
+        }
+        int selectedCellCount = 0;
+        for (const QTableWidgetSelectionRange& range : table->selectedRanges()) {
+            selectedCellCount += range.rowCount() * range.columnCount();
+        }
+        if (selectedCellCount > 1) {
+            status += QString("  •  %1 cells selected").arg(selectedCellCount);
+        }
+    }
+
+    m_statusBar->showMessage(status);
 }
 
 void MainWindow::updateUndoRedoActions()
@@ -1188,6 +1239,72 @@ void MainWindow::updateUndoRedoActions()
     if (editor) {
         m_actUndo->setEnabled(editor->canUndo());
         m_actRedo->setEnabled(editor->canRedo());
+    } else {
+        m_actUndo->setEnabled(false);
+        m_actRedo->setEnabled(false);
+    }
+}
+
+void MainWindow::wireEditorFeedback(EditorBase* editor)
+{
+    if (!editor) return;
+
+    auto connectHistory = [this, editor](QTextDocument* document) {
+        connect(document, &QTextDocument::undoAvailable, this, [this, editor](bool) {
+            if (currentEditor() == editor) updateUndoRedoActions();
+        });
+        connect(document, &QTextDocument::redoAvailable, this, [this, editor](bool) {
+            if (currentEditor() == editor) updateUndoRedoActions();
+        });
+    };
+    auto refreshActiveEditor = [this, editor]() {
+        if (currentEditor() != editor) return;
+        updateWindowTitle(editor);
+        updateStatusBar(editor);
+    };
+
+    if (auto* plain = dynamic_cast<PlainTextEditor*>(editor)) {
+        connectHistory(plain->document());
+        connect(plain, &QPlainTextEdit::cursorPositionChanged, this, [this, editor]() {
+            if (currentEditor() == editor) updateStatusBar(editor);
+        });
+        connect(plain, &PlainTextEditor::modificationChanged, this,
+                [refreshActiveEditor](bool) { refreshActiveEditor(); });
+        connect(plain, &PlainTextEditor::filePathChanged, this,
+                [refreshActiveEditor](const QString&) { refreshActiveEditor(); });
+    } else if (auto* rich = dynamic_cast<RichTextEditor*>(editor)) {
+        connectHistory(rich->textEdit()->document());
+        connect(rich, &RichTextEditor::cursorPositionChanged, this, [this, editor]() {
+            if (currentEditor() == editor) updateStatusBar(editor);
+        });
+        connect(rich, &RichTextEditor::modificationChanged, this,
+                [refreshActiveEditor](bool) { refreshActiveEditor(); });
+        connect(rich, &RichTextEditor::filePathChanged, this,
+                [refreshActiveEditor](const QString&) { refreshActiveEditor(); });
+    } else if (auto* code = dynamic_cast<CodeEditor*>(editor)) {
+        connectHistory(code->editorWidget()->document());
+        connect(code->editorWidget(), &QPlainTextEdit::cursorPositionChanged, this, [this, editor]() {
+            if (currentEditor() == editor) updateStatusBar(editor);
+        });
+        connect(code, &CodeEditor::modificationChanged, this,
+                [refreshActiveEditor](bool) { refreshActiveEditor(); });
+    } else if (auto* sheet = dynamic_cast<SpreadsheetEditor*>(editor)) {
+        connect(sheet->tableWidget(), &QTableWidget::currentCellChanged, this,
+                [this, editor](int, int, int, int) {
+            if (currentEditor() == editor) updateStatusBar(editor);
+        });
+        connect(sheet->tableWidget(), &QTableWidget::itemSelectionChanged, this, [this, editor]() {
+            if (currentEditor() == editor) updateStatusBar(editor);
+        });
+        connect(sheet, &SpreadsheetEditor::modificationChanged, this,
+                [refreshActiveEditor](bool) { refreshActiveEditor(); });
+        connect(sheet, &SpreadsheetEditor::filePathChanged, this,
+                [refreshActiveEditor](const QString&) { refreshActiveEditor(); });
+    }
+
+    if (currentEditor() == editor) {
+        updateUndoRedoActions();
+        updateStatusBar(editor);
     }
 }
 
@@ -1519,6 +1636,7 @@ void MainWindow::onEditorChanged(EditorBase* editor)
     updateToolbarsForEditor(editor);
     updateWindowTitle(editor);
     updateStatusBar(editor);
+    updateUndoRedoActions();
 }
 
 void MainWindow::onEditorCloseRequested(EditorBase* editor)

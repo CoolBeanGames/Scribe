@@ -22,6 +22,7 @@ public:
 
     void setLanguage(CodeLanguage lang);
     CodeLanguage language() const;
+    CodeEditorWidget* editorWidget() const { return m_editor; }
 
     void undo() override { m_editor->undo(); }
     void redo() override { m_editor->redo(); }

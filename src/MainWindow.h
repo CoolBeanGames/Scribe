@@ -120,6 +120,7 @@ private:
     void updateWorkspaceState();
     void refreshRecentFiles();
     void addRecentFile(const QString& path);
+    void wireEditorFeedback(EditorBase* editor);
 
     // Editor management
     void newPlainText();
