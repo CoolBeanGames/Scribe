@@ -634,17 +634,16 @@ void MainWindow::saveCurrentFile()
 
     if (editor->filePath().isEmpty()) {
         saveCurrentFileAs();
-    } else {
-        editor->saveFile();
+    } else if (editor->saveFile()) {
         m_tabWidget->updateTabLabel(editor);
         updateWindowTitle(editor);
     }
 }
 
-void MainWindow::saveCurrentFileAs()
+bool MainWindow::saveCurrentFileAs()
 {
     EditorBase* editor = currentEditor();
-    if (!editor) return;
+    if (!editor) return false;
 
     QString filter;
     QString defaultExt;
@@ -693,13 +692,15 @@ void MainWindow::saveCurrentFileAs()
     }
 
     QString path = QFileDialog::getSaveFileName(this, "Save As", suggestedPath, filter);
-    if (path.isEmpty()) return;
+    if (path.isEmpty()) return false;
 
     if (editor->saveFileAs(path)) {
         m_tabWidget->updateTabLabel(editor);
         updateWindowTitle(editor);
         if (m_tabWidget->isEditorPinned(editor)) savePinnedFiles();
+        return true;
     }
+    return false;
 }
 
 void MainWindow::restorePinnedFiles()
@@ -840,6 +841,9 @@ void MainWindow::closeEditor(EditorBase* editor)
 {
     if (!editor) return;
 
+    const int editorIndex = m_tabWidget->indexOf(editor->widget());
+    if (editorIndex >= 0) m_tabWidget->setCurrentIndex(editorIndex);
+
     if (editor->isModified()) {
         QString name = editor->displayName();
         QMessageBox::StandardButton btn = QMessageBox::question(
@@ -849,11 +853,13 @@ void MainWindow::closeEditor(EditorBase* editor)
             QMessageBox::Save);
 
         if (btn == QMessageBox::Save) {
+            bool saved = false;
             if (editor->filePath().isEmpty()) {
-                saveCurrentFileAs();
+                saved = saveCurrentFileAs();
             } else {
-                editor->saveFile();
+                saved = editor->saveFile();
             }
+            if (!saved) return;
         } else if (btn == QMessageBox::Cancel) {
             return;
         }
@@ -1325,10 +1331,15 @@ void MainWindow::closeEvent(QCloseEvent* event)
                 event->ignore();
                 return;
             } else if (btn == QMessageBox::Save) {
+                bool saved = false;
                 if (editor->filePath().isEmpty()) {
-                    saveCurrentFileAs();
+                    saved = saveCurrentFileAs();
                 } else {
-                    editor->saveFile();
+                    saved = editor->saveFile();
+                }
+                if (!saved) {
+                    event->ignore();
+                    return;
                 }
             }
         }

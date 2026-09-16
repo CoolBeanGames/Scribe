@@ -107,7 +107,7 @@ private:
     void openFile();
     
     void saveCurrentFile();
-    void saveCurrentFileAs();
+    bool saveCurrentFileAs();
     void onPrint();
     void onDefaultAppSettings();
     void closeEditor(EditorBase* editor);

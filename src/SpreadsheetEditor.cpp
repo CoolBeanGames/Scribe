@@ -9,6 +9,7 @@
 #include <QHeaderView>
 #include <QKeyEvent>
 #include <QFile>
+#include <QSaveFile>
 #include <QTextStream>
 #include <QFileInfo>
 #include <QMessageBox>
@@ -246,7 +247,7 @@ bool SpreadsheetEditor::saveFileAs(const QString& path)
     QString ext = QFileInfo(path).suffix().toLower();
 
     if (ext == "scht") {
-        QFile file(path);
+        QSaveFile file(path);
         if (!file.open(QIODevice::WriteOnly)) {
             QMessageBox::warning(this, "Save Error",
                 QString("Cannot save file:\n%1\n\n%2").arg(path, file.errorString()));
@@ -289,15 +290,19 @@ bool SpreadsheetEditor::saveFileAs(const QString& path)
         root["cells"] = cells;
 
         QJsonDocument doc(root);
-        file.write(doc.toJson(QJsonDocument::Indented));
-        file.close();
+        const QByteArray data = doc.toJson(QJsonDocument::Indented);
+        if (file.write(data) != data.size() || !file.commit()) {
+            QMessageBox::warning(this, "Save Error",
+                QString("Cannot finish saving file:\n%1\n\n%2").arg(path, file.errorString()));
+            return false;
+        }
 
         setFilePath(path);
         setModified(false);
         return true;
     }
 
-    QFile file(path);
+    QSaveFile file(path);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
         QMessageBox::warning(this, "Save Error",
             QString("Cannot save file:\n%1\n\n%2").arg(path, file.errorString()));
@@ -325,7 +330,12 @@ bool SpreadsheetEditor::saveFileAs(const QString& path)
         }
     }
 
-    file.close();
+    stream.flush();
+    if (stream.status() != QTextStream::Ok || !file.commit()) {
+        QMessageBox::warning(this, "Save Error",
+            QString("Cannot finish saving file:\n%1\n\n%2").arg(path, file.errorString()));
+        return false;
+    }
 
     setFilePath(path);
     setModified(false);

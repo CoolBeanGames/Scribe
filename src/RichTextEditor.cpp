@@ -4,6 +4,7 @@
 #include "RichTextEditor.h"
 #include <QVBoxLayout>
 #include <QFile>
+#include <QSaveFile>
 #include <QTextStream>
 #include <QFileInfo>
 #include <QMessageBox>
@@ -195,7 +196,7 @@ bool RichTextEditor::saveFile()
 
 bool RichTextEditor::saveFileAs(const QString& path)
 {
-    QFile file(path);
+    QSaveFile file(path);
     if (!file.open(QIODevice::WriteOnly)) {
         QMessageBox::warning(this, "Save Error",
             QString("Cannot save file:\n%1\n\n%2").arg(path, file.errorString()));
@@ -221,8 +222,11 @@ bool RichTextEditor::saveFileAs(const QString& path)
         data = m_editor->toPlainText().toUtf8();
     }
 
-    file.write(data);
-    file.close();
+    if (file.write(data) != data.size() || !file.commit()) {
+        QMessageBox::warning(this, "Save Error",
+            QString("Cannot finish saving file:\n%1\n\n%2").arg(path, file.errorString()));
+        return false;
+    }
 
     setFilePath(path);
     setModified(false);

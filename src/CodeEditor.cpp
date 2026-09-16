@@ -1,8 +1,10 @@
 #include <QMenu>
 #include "CodeEditor.h"
 #include <QFile>
+#include <QSaveFile>
 #include <QTextStream>
 #include <QFileInfo>
+#include <QMessageBox>
 #include <QJsonDocument>
 #include <QJsonParseError>
 #include <QXmlStreamReader>
@@ -54,11 +56,21 @@ bool CodeEditor::saveFile() {
 
 bool CodeEditor::saveFileAs(const QString& path) {
     if (path.isEmpty()) return false;
-    QFile file(path);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QMessageBox::warning(this, "Save Error",
+            QString("Cannot save file:\n%1\n\n%2").arg(path, file.errorString()));
         return false;
+    }
     QTextStream out(&file);
+    out.setEncoding(QStringConverter::Utf8);
     out << m_editor->toPlainText();
+    out.flush();
+    if (out.status() != QTextStream::Ok || !file.commit()) {
+        QMessageBox::warning(this, "Save Error",
+            QString("Cannot finish saving file:\n%1\n\n%2").arg(path, file.errorString()));
+        return false;
+    }
     m_filePath = path;
     setModified(false);
     return true;
