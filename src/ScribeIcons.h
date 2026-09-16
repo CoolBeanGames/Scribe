@@ -30,6 +30,22 @@ inline QIcon makeIcon(void (*drawFunc)(QPainter&, int, int), int size = 20) {
 
 // ── Icons ───────────────────────────────────────────────────────────────────
 
+inline QIcon newFileIcon() {
+    return makeIcon([](QPainter& p, int w, int h) {
+        Q_UNUSED(w);
+        Q_UNUSED(h);
+        p.drawLine(5, 2, 12, 2);
+        p.drawLine(12, 2, 16, 6);
+        p.drawLine(16, 6, 16, 18);
+        p.drawLine(16, 18, 5, 18);
+        p.drawLine(5, 18, 5, 2);
+        p.drawLine(12, 2, 12, 6);
+        p.drawLine(12, 6, 16, 6);
+        p.drawLine(7, 12, 13, 12);
+        p.drawLine(10, 9, 10, 15);
+    });
+}
+
 inline QIcon openIcon() {
     return makeIcon([](QPainter& p, int w, int h) {
         // Folder

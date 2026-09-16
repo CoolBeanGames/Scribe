@@ -239,6 +239,8 @@ void MainWindow::setupMenuBar()
     QMenu* fileMenu = mb->addMenu("&File");
 
     QMenu* newMenu = fileMenu->addMenu("&New");
+    m_actNewFile = new QAction("New File", this);
+    m_actNewFile->setShortcut(QKeySequence::New);
     
     QMenu* textMenu = newMenu->addMenu("Text");
     m_actNewTxt = textMenu->addAction(".txt");
@@ -309,6 +311,7 @@ void MainWindow::setupMenuBar()
     connect(m_actNewScht, &QAction::triggered, this, &MainWindow::newSpreadsheet);
     connect(m_actNewExcel, &QAction::triggered, this, &MainWindow::newSpreadsheet);
     connect(m_actNewCsv, &QAction::triggered, this, &MainWindow::newSpreadsheet);
+    connect(m_actNewFile, &QAction::triggered, this, &MainWindow::newPlainText);
     connect(m_actOpen, &QAction::triggered, this, qOverload<>(&MainWindow::openFile));
     connect(m_actSave,   &QAction::triggered, this, &MainWindow::saveCurrentFile);
     connect(m_actSaveAs, &QAction::triggered, this, &MainWindow::saveCurrentFileAs);
@@ -334,11 +337,13 @@ void MainWindow::setupMainToolbar()
     connect(m_actRunCode, &QAction::triggered, this, &MainWindow::runCurrentCode);
     m_mainToolbar->addAction(m_actRunCode);
 
+    m_actNewFile->setIcon(ScribeIcons::newFileIcon());
     m_actOpen->setIcon(ScribeIcons::openIcon());
     m_actSave->setIcon(ScribeIcons::saveIcon());
     m_actPrint->setIcon(ScribeIcons::printIcon());
     m_actUndo->setIcon(ScribeIcons::undoIcon());
     m_actRedo->setIcon(ScribeIcons::redoIcon());
+    m_mainToolbar->addAction(m_actNewFile);
     m_mainToolbar->addAction(m_actOpen);
     m_mainToolbar->addAction(m_actSave);
     m_actPrintToolbar = m_actPrint;
@@ -347,6 +352,7 @@ void MainWindow::setupMainToolbar()
     m_mainToolbar->addAction(m_actUndo);
     m_mainToolbar->addAction(m_actRedo);
 
+    m_actNewFile->setToolTip("New File (Ctrl+N)");
     m_actOpen->setToolTip("Open File (Ctrl+O)");
     m_actSave->setToolTip("Save (Ctrl+S)");
     m_actPrintToolbar->setToolTip("Print (Ctrl+P)");

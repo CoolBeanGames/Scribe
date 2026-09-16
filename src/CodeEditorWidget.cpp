@@ -18,6 +18,16 @@
 #include <QRegularExpression>
 #include <QTimer>
 
+namespace {
+bool isPair(QChar opening, QChar closing)
+{
+    return (opening == '(' && closing == ')')
+        || (opening == '[' && closing == ']')
+        || (opening == '{' && closing == '}')
+        || (opening == '"' && closing == '"');
+}
+}
+
 CodeEditorWidget::CodeEditorWidget(QWidget *parent) : QPlainTextEdit(parent) {
     lineNumberArea = new LineNumberArea(this);
 
@@ -200,6 +210,12 @@ void CodeEditorWidget::keyPressEvent(QKeyEvent* e) {
         cursor.endEditBlock();
         return;
     }
+
+    if (handleAutoPair(e)) {
+        if (m_completer) m_completer->popup()->hide();
+        return;
+    }
+
     if (e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter) {
         if (m_completer && m_completer->popup()->isVisible()) {
             // Let completer handle Enter
@@ -290,9 +306,150 @@ void CodeEditorWidget::keyPressEvent(QKeyEvent* e) {
         m_completer->popup()->setCurrentIndex(m_completer->completionModel()->index(0, 0));
     }
     QRect cr = cursorRect();
+    cr.setTop(cr.bottom() + 6);
+    cr.setHeight(1);
     cr.setWidth(m_completer->popup()->sizeHintForColumn(0)
                 + m_completer->popup()->verticalScrollBar()->sizeHint().width());
     m_completer->complete(cr);
+}
+
+bool CodeEditorWidget::handleAutoPair(QKeyEvent* event)
+{
+    if (event->modifiers().testFlag(Qt::ControlModifier)
+        || event->modifiers().testFlag(Qt::AltModifier)
+        || event->modifiers().testFlag(Qt::MetaModifier)) {
+        return false;
+    }
+
+    if ((m_language == CodeLanguage::Html || m_language == CodeLanguage::Xml)
+        && event->text() == ">") {
+        return handleMarkupClosingTag(event);
+    }
+
+    const bool json = m_language == CodeLanguage::Json;
+    const bool csharp = m_language == CodeLanguage::CSharp;
+    if (!json && !csharp) return false;
+
+    QTextCursor cursor = textCursor();
+    if (event->key() == Qt::Key_Backspace && !cursor.hasSelection()
+        && cursor.position() > 0 && cursor.position() < document()->characterCount() - 1) {
+        const QChar before = document()->characterAt(cursor.position() - 1);
+        const QChar after = document()->characterAt(cursor.position());
+        const bool languagePair = isPair(before, after)
+            && ((csharp && before != '"')
+                || (json && (before == '{' || before == '[' || before == '"')));
+        if (languagePair) {
+            cursor.beginEditBlock();
+            cursor.movePosition(QTextCursor::PreviousCharacter);
+            cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor, 2);
+            cursor.removeSelectedText();
+            cursor.endEditBlock();
+            setTextCursor(cursor);
+            return true;
+        }
+        return false;
+    }
+
+    if (event->text().size() != 1) return false;
+    const QChar typed = event->text().at(0);
+    const QString closingCharacters = csharp ? ")]}" : "]}";
+    if ((closingCharacters.contains(typed) || (json && typed == '"'))
+        && !cursor.hasSelection()
+        && document()->characterAt(cursor.position()) == typed) {
+        cursor.movePosition(QTextCursor::NextCharacter);
+        setTextCursor(cursor);
+        return true;
+    }
+
+    QChar closing;
+    if (typed == '{') closing = '}';
+    else if (typed == '[') closing = ']';
+    else if (csharp && typed == '(') closing = ')';
+    else if (json && typed == '"') {
+        if (cursor.position() > 0) {
+            int slashCount = 0;
+            for (int pos = cursor.position() - 1;
+                 pos >= 0 && document()->characterAt(pos) == '\\'; --pos) {
+                ++slashCount;
+            }
+            if (slashCount % 2 != 0) return false;
+        }
+        if (isInsideJsonString()) return false;
+        closing = '"';
+    } else {
+        return false;
+    }
+
+    cursor.beginEditBlock();
+    if (cursor.hasSelection()) {
+        const int selectionStart = cursor.selectionStart();
+        const QString selectedText = cursor.selectedText();
+        cursor.insertText(QString(typed) + selectedText + closing);
+        cursor.setPosition(selectionStart + 1);
+        cursor.setPosition(selectionStart + 1 + selectedText.size(), QTextCursor::KeepAnchor);
+    } else {
+        cursor.insertText(QString(typed) + closing);
+        cursor.movePosition(QTextCursor::PreviousCharacter);
+    }
+    cursor.endEditBlock();
+    setTextCursor(cursor);
+    return true;
+}
+
+bool CodeEditorWidget::handleMarkupClosingTag(QKeyEvent* event)
+{
+    Q_UNUSED(event);
+    QTextCursor cursor = textCursor();
+    if (cursor.hasSelection()) return false;
+
+    const QString line = cursor.block().text();
+    const int positionInBlock = cursor.position() - cursor.block().position();
+    const QString beforeCursor = line.left(positionInBlock);
+    if (beforeCursor.trimmed().endsWith('/')) return false;
+
+    static const QRegularExpression openingTag(
+        R"(<([A-Za-z][A-Za-z0-9:_-]*)(?:\s[^<>]*)?$)");
+    const QRegularExpressionMatch match = openingTag.match(beforeCursor);
+    if (!match.hasMatch()) return false;
+
+    const QString tagName = match.captured(1);
+    if (m_language == CodeLanguage::Html) {
+        static const QSet<QString> voidElements = {
+            "area", "base", "br", "col", "embed", "hr", "img", "input",
+            "link", "meta", "param", "source", "track", "wbr"
+        };
+        if (voidElements.contains(tagName.toLower())) return false;
+    }
+
+    const QString closingTag = QString("</%1>").arg(tagName);
+    const QString afterCursor = line.mid(positionInBlock);
+    cursor.beginEditBlock();
+    cursor.insertText(">");
+    const Qt::CaseSensitivity tagCase = m_language == CodeLanguage::Html
+        ? Qt::CaseInsensitive : Qt::CaseSensitive;
+    if (!afterCursor.startsWith(closingTag, tagCase)) {
+        cursor.insertText(closingTag);
+        cursor.movePosition(QTextCursor::PreviousCharacter,
+                            QTextCursor::MoveAnchor, closingTag.size());
+    }
+    cursor.endEditBlock();
+    setTextCursor(cursor);
+    return true;
+}
+
+bool CodeEditorWidget::isInsideJsonString() const
+{
+    const QTextCursor cursor = textCursor();
+    const QString beforeCursor = cursor.block().text().left(
+        cursor.position() - cursor.block().position());
+    bool insideString = false;
+    bool escaped = false;
+    for (const QChar character : beforeCursor) {
+        if (character == '"' && !escaped) insideString = !insideString;
+        if (character == '\\' && !escaped) escaped = true;
+        else escaped = false;
+    }
+    return insideString;
 }
 
 void CodeEditorWidget::setCompleter(QCompleter *completer)

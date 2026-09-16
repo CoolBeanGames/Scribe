@@ -46,6 +46,9 @@ private slots:
 
 private:
     QString textUnderCursor() const;
+    bool handleAutoPair(QKeyEvent* event);
+    bool handleMarkupClosingTag(QKeyEvent* event);
+    bool isInsideJsonString() const;
 
     QWidget *lineNumberArea = nullptr;
     QSyntaxHighlighter *m_highlighter = nullptr;
