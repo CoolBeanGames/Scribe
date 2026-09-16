@@ -9,6 +9,7 @@
 #include <QPainter>
 #include <QIcon>
 #include <QColor>
+#include <QMenu>
 
 TabWidget::TabWidget(QWidget* parent)
     : QTabWidget(parent)
@@ -16,11 +17,16 @@ TabWidget::TabWidget(QWidget* parent)
     setTabsClosable(true);
     setMovable(true);
     setDocumentMode(true);
+    tabBar()->setContextMenuPolicy(Qt::CustomContextMenu);
 
     connect(this, &QTabWidget::tabCloseRequested,
             this, &TabWidget::onTabCloseRequested);
     connect(this, &QTabWidget::currentChanged,
             this, &TabWidget::onCurrentChanged);
+    connect(tabBar(), &QWidget::customContextMenuRequested,
+            this, &TabWidget::onTabContextMenuRequested);
+    connect(tabBar(), &QTabBar::tabMoved,
+            this, &TabWidget::onTabMoved);
 }
 
 int TabWidget::addEditor(EditorBase* editor)
@@ -83,6 +89,9 @@ void TabWidget::updateTabLabel(EditorBase* editor)
     if (editor->isModified()) {
         name = "• " + name;
     }
+    if (isEditorPinned(editor)) {
+        name = QString::fromUtf8("\xF0\x9F\x93\x8C ") + name;
+    }
     setTabText(idx, name);
 
     QPixmap pm(14, 14);
@@ -111,6 +120,30 @@ void TabWidget::removeEditor(EditorBase* editor)
     if (idx < 0) return;
     removeTab(idx);
     m_editors.removeAt(idx);
+    m_pinnedEditors.removeAll(editor);
+}
+
+bool TabWidget::isEditorPinned(EditorBase* editor) const
+{
+    return editor && m_pinnedEditors.contains(editor);
+}
+
+void TabWidget::setEditorPinned(EditorBase* editor, bool pinned)
+{
+    if (!editor || m_editors.indexOf(editor) < 0 || isEditorPinned(editor) == pinned) return;
+
+    if (pinned) {
+        m_pinnedEditors.append(editor);
+    } else {
+        m_pinnedEditors.removeAll(editor);
+    }
+    updateTabLabel(editor);
+    emit pinnedEditorsChanged();
+}
+
+QList<EditorBase*> TabWidget::pinnedEditors() const
+{
+    return m_pinnedEditors;
 }
 
 void TabWidget::onTabCloseRequested(int index)
@@ -124,6 +157,28 @@ void TabWidget::onTabCloseRequested(int index)
 void TabWidget::onCurrentChanged(int index)
 {
     emit editorChanged(editorAt(index));
+}
+
+void TabWidget::onTabContextMenuRequested(const QPoint& pos)
+{
+    const int index = tabBar()->tabAt(pos);
+    EditorBase* editor = editorAt(index);
+    if (!editor) return;
+
+    QMenu menu(this);
+    const bool pinned = isEditorPinned(editor);
+    QAction* pinAction = menu.addAction(pinned ? "Unpin Tab" : "Pin Tab");
+    QAction* selected = menu.exec(tabBar()->mapToGlobal(pos));
+    if (selected == pinAction) {
+        emit editorPinRequested(editor, !pinned);
+    }
+}
+
+void TabWidget::onTabMoved(int from, int to)
+{
+    if (from >= 0 && from < m_editors.size() && to >= 0 && to < m_editors.size()) {
+        m_editors.move(from, to);
+    }
 }
 
 

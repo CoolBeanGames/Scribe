@@ -26,6 +26,8 @@
 #include <QPrinter>
 #include <QPrintDialog>
 #include <QTextDocument>
+#include <QSettings>
+#include <QSet>
 
 // ---------------------------------------------------------------------------
 // Construction
@@ -77,10 +79,16 @@ MainWindow::MainWindow(QWidget* parent)
             this, &MainWindow::onEditorChanged);
     connect(m_tabWidget, &TabWidget::editorCloseRequested,
             this, &MainWindow::onEditorCloseRequested);
+    connect(m_tabWidget, &TabWidget::editorPinRequested,
+            this, &MainWindow::onEditorPinRequested);
+    connect(m_tabWidget, &TabWidget::pinnedEditorsChanged,
+            this, &MainWindow::savePinnedFiles);
 
     // Start with no tabs; show empty state
     updateToolbarsForEditor(nullptr);
     updateWindowTitle(nullptr);
+
+    restorePinnedFiles();
 }
 
 // ---------------------------------------------------------------------------
@@ -580,6 +588,16 @@ void MainWindow::openFile(const QString& path)
 {
     if (path.isEmpty()) return;
 
+    const QString requestedPath = QFileInfo(path).absoluteFilePath();
+    for (int i = 0; i < m_tabWidget->count(); ++i) {
+        EditorBase* openEditor = m_tabWidget->editorAt(i);
+        if (openEditor && QFileInfo(openEditor->filePath()).absoluteFilePath()
+                              .compare(requestedPath, Qt::CaseInsensitive) == 0) {
+            m_tabWidget->setCurrentIndex(i);
+            return;
+        }
+    }
+
     QString ext = QFileInfo(path).suffix().toLower();
     EditorBase* editor = nullptr;
 
@@ -680,7 +698,66 @@ void MainWindow::saveCurrentFileAs()
     if (editor->saveFileAs(path)) {
         m_tabWidget->updateTabLabel(editor);
         updateWindowTitle(editor);
+        if (m_tabWidget->isEditorPinned(editor)) savePinnedFiles();
     }
+}
+
+void MainWindow::restorePinnedFiles()
+{
+    QSettings settings;
+    const QStringList savedPaths = settings.value("session/pinnedFiles").toStringList();
+    QSet<QString> restoredPaths;
+
+    for (const QString& savedPath : savedPaths) {
+        QFileInfo fileInfo(savedPath);
+        const QString path = fileInfo.absoluteFilePath();
+        const QString key = QDir::toNativeSeparators(path).toLower();
+        if (!fileInfo.exists() || restoredPaths.contains(key)) continue;
+
+        restoredPaths.insert(key);
+        openFile(path);
+        EditorBase* editor = currentEditor();
+        if (editor && QFileInfo(editor->filePath()).absoluteFilePath()
+                          .compare(path, Qt::CaseInsensitive) == 0) {
+            m_tabWidget->setEditorPinned(editor, true);
+        }
+    }
+
+    // Drop missing and duplicate files from the persisted session.
+    savePinnedFiles();
+}
+
+void MainWindow::savePinnedFiles()
+{
+    QStringList paths;
+    QSet<QString> seen;
+    for (EditorBase* editor : m_tabWidget->pinnedEditors()) {
+        if (!editor || editor->filePath().isEmpty()) continue;
+        const QString path = QFileInfo(editor->filePath()).absoluteFilePath();
+        const QString key = QDir::toNativeSeparators(path).toLower();
+        if (!seen.contains(key)) {
+            seen.insert(key);
+            paths.append(path);
+        }
+    }
+
+    QSettings settings;
+    settings.setValue("session/pinnedFiles", paths);
+    settings.sync();
+}
+
+void MainWindow::onEditorPinRequested(EditorBase* editor, bool pinned)
+{
+    if (!editor) return;
+
+    if (pinned && editor->filePath().isEmpty()) {
+        const int index = m_tabWidget->indexOf(editor->widget());
+        if (index >= 0) m_tabWidget->setCurrentIndex(index);
+        saveCurrentFileAs();
+        if (editor->filePath().isEmpty()) return;
+    }
+
+    m_tabWidget->setEditorPinned(editor, pinned);
 }
 
 void MainWindow::onPrint()
@@ -782,6 +859,9 @@ void MainWindow::closeEditor(EditorBase* editor)
         }
     }
 
+    if (m_tabWidget->isEditorPinned(editor)) {
+        m_tabWidget->setEditorPinned(editor, false);
+    }
     m_tabWidget->removeEditor(editor);
     delete editor->widget();
 

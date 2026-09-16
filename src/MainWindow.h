@@ -111,6 +111,9 @@ private:
     void onPrint();
     void onDefaultAppSettings();
     void closeEditor(EditorBase* editor);
+    void restorePinnedFiles();
+    void savePinnedFiles();
+    void onEditorPinRequested(EditorBase* editor, bool pinned);
 
     // Query current editor
     EditorBase*      currentEditor()      const;

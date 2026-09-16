@@ -25,15 +25,25 @@ public:
     // Remove the tab for this editor
     void removeEditor(EditorBase* editor);
 
+    // Pinned editors are restored by MainWindow on the next application launch.
+    bool isEditorPinned(EditorBase* editor) const;
+    void setEditorPinned(EditorBase* editor, bool pinned);
+    QList<EditorBase*> pinnedEditors() const;
+
 signals:
     void editorChanged(EditorBase* editor);  // emitted when active tab changes
     void editorCloseRequested(EditorBase* editor);
+    void editorPinRequested(EditorBase* editor, bool pinned);
+    void pinnedEditorsChanged();
 
 private slots:
     void onTabCloseRequested(int index);
     void onCurrentChanged(int index);
+    void onTabContextMenuRequested(const QPoint& pos);
+    void onTabMoved(int from, int to);
 
 private:
     // Maps editor pointer -> tab index (maintained manually)
     QList<EditorBase*> m_editors;  // parallel to tab indices
+    QList<EditorBase*> m_pinnedEditors;
 };
