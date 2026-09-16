@@ -15,6 +15,11 @@
 #include "SpreadsheetEditor.h"
 #include "CodeEditor.h"
 
+class QDialog;
+class QPlainTextEdit;
+class QProcess;
+class QPushButton;
+
 class MainWindow : public QMainWindow {
     Q_OBJECT
 public:
@@ -61,6 +66,14 @@ private:
     QAction* m_actDefaultApp = nullptr;
     QAction* m_actExit     = nullptr;
 
+    // Asynchronous code execution UI
+    QProcess*      m_runningProcess = nullptr;
+    QDialog*       m_runDialog = nullptr;
+    QPlainTextEdit* m_runOutput = nullptr;
+    QLabel*        m_runStatus = nullptr;
+    QPushButton*   m_runStopButton = nullptr;
+    QPushButton*   m_runCloseButton = nullptr;
+
     // Rich text toolbar actions / widgets
     QFontComboBox* m_fontCombo     = nullptr;
     QSpinBox*      m_fontSizeSpin  = nullptr;
@@ -104,6 +117,8 @@ private:
     void newSpreadsheet();
     void newCodeEditor(CodeLanguage lang = CodeLanguage::Python);
     void runCurrentCode();
+    void appendRunOutput(const QString& text);
+    void finishCodeRun(const QString& status);
     void openFile();
     
     void saveCurrentFile();

@@ -28,6 +28,11 @@
 #include <QTextDocument>
 #include <QSettings>
 #include <QSet>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QPlainTextEdit>
+#include <QPushButton>
+#include <QTimer>
 
 // ---------------------------------------------------------------------------
 // Construction
@@ -494,6 +499,15 @@ void MainWindow::newCodeEditor(CodeLanguage lang)
 
 void MainWindow::runCurrentCode()
 {
+    if (m_runningProcess && m_runningProcess->state() != QProcess::NotRunning) {
+        if (m_runDialog) {
+            m_runDialog->show();
+            m_runDialog->raise();
+            m_runDialog->activateWindow();
+        }
+        return;
+    }
+
     auto* code = currentEditor();
     if (!code || code->documentType() != DocumentType::Code) {
         QMessageBox::warning(this, "Run Code", "Active tab is not a Code Editor.");
@@ -506,7 +520,9 @@ void MainWindow::runCurrentCode()
         return;
     }
 
-    QProcess* process = new QProcess(this);
+    if (code->isModified() && !code->saveFile()) {
+        return;
+    }
 
     // Resolve python interpreter across PATH, standard python launcher (py.exe), and common user installs
     QString pythonExe = QStandardPaths::findExecutable("python");
@@ -542,25 +558,104 @@ void MainWindow::runCurrentCode()
         pythonExe = "python"; // fallback attempt
     }
 
-    process->setProgram(pythonExe);
-    process->setArguments({path});
-    
-    process->start();
-    if (!process->waitForStarted()) {
-        QMessageBox::critical(this, "Run Error",
-            QString("Failed to start Python interpreter (%1).\nPlease ensure Python is installed or added to PATH.").arg(pythonExe));
-    } else {
-        process->waitForFinished();
-        QString output = process->readAllStandardOutput();
-        QString err = process->readAllStandardError();
-        QString result = output;
-        if (!err.isEmpty()) {
-            if (!result.isEmpty()) result += "\n";
-            result += "Errors:\n" + err;
-        }
-        QMessageBox::information(this, "Script Output", result.isEmpty() ? "Script finished with no output." : result);
+    if (m_runDialog) {
+        m_runDialog->deleteLater();
     }
-    process->deleteLater();
+    m_runDialog = new QDialog(this);
+    m_runDialog->setWindowTitle("Run — " + QFileInfo(path).fileName());
+    m_runDialog->resize(720, 460);
+    m_runDialog->setAttribute(Qt::WA_DeleteOnClose, false);
+
+    auto* layout = new QVBoxLayout(m_runDialog);
+    layout->setContentsMargins(16, 16, 16, 16);
+    layout->setSpacing(10);
+    m_runStatus = new QLabel(QString("Starting %1…").arg(QFileInfo(pythonExe).fileName()), m_runDialog);
+    m_runStatus->setObjectName("RunStatus");
+    layout->addWidget(m_runStatus);
+
+    m_runOutput = new QPlainTextEdit(m_runDialog);
+    m_runOutput->setReadOnly(true);
+    m_runOutput->setPlaceholderText("Program output will appear here.");
+    m_runOutput->setLineWrapMode(QPlainTextEdit::NoWrap);
+    layout->addWidget(m_runOutput, 1);
+
+    auto* buttons = new QDialogButtonBox(m_runDialog);
+    m_runStopButton = buttons->addButton("Stop", QDialogButtonBox::DestructiveRole);
+    m_runCloseButton = buttons->addButton(QDialogButtonBox::Close);
+    m_runCloseButton->setEnabled(false);
+    layout->addWidget(buttons);
+
+    m_runningProcess = new QProcess(this);
+    m_runningProcess->setProgram(pythonExe);
+    m_runningProcess->setArguments({path});
+    m_runningProcess->setWorkingDirectory(QFileInfo(path).absolutePath());
+
+    connect(m_runningProcess, &QProcess::started, this, [this]() {
+        if (m_runStatus) m_runStatus->setText("Running…");
+    });
+    connect(m_runningProcess, &QProcess::readyReadStandardOutput, this, [this]() {
+        if (m_runningProcess) appendRunOutput(QString::fromLocal8Bit(m_runningProcess->readAllStandardOutput()));
+    });
+    connect(m_runningProcess, &QProcess::readyReadStandardError, this, [this]() {
+        if (m_runningProcess) appendRunOutput(QString::fromLocal8Bit(m_runningProcess->readAllStandardError()));
+    });
+    connect(m_runningProcess, &QProcess::errorOccurred, this, [this, pythonExe](QProcess::ProcessError error) {
+        if (error == QProcess::FailedToStart) {
+            finishCodeRun(QString("Failed to start %1. Verify that Python is installed and available.").arg(pythonExe));
+        }
+    });
+    connect(m_runningProcess, qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
+            this, [this](int exitCode, QProcess::ExitStatus exitStatus) {
+        if (m_runningProcess) {
+            appendRunOutput(QString::fromLocal8Bit(m_runningProcess->readAllStandardOutput()));
+            appendRunOutput(QString::fromLocal8Bit(m_runningProcess->readAllStandardError()));
+        }
+        const QString status = exitStatus == QProcess::CrashExit
+            ? "Process stopped unexpectedly."
+            : QString("Finished with exit code %1.").arg(exitCode);
+        finishCodeRun(status);
+    });
+    connect(m_runStopButton, &QPushButton::clicked, this, [this]() {
+        if (!m_runningProcess || m_runningProcess->state() == QProcess::NotRunning) return;
+        if (m_runStatus) m_runStatus->setText("Stopping…");
+        m_runningProcess->terminate();
+        QProcess* process = m_runningProcess;
+        QTimer::singleShot(2000, process, [process]() {
+            if (process->state() != QProcess::NotRunning) process->kill();
+        });
+    });
+    connect(m_runCloseButton, &QPushButton::clicked, m_runDialog, &QDialog::close);
+    connect(m_runDialog, &QDialog::rejected, m_runStopButton, &QPushButton::click);
+
+    m_actRunCode->setEnabled(false);
+    m_runDialog->show();
+    m_runningProcess->start();
+}
+
+void MainWindow::appendRunOutput(const QString& text)
+{
+    if (!m_runOutput || text.isEmpty()) return;
+    QTextCursor cursor = m_runOutput->textCursor();
+    cursor.movePosition(QTextCursor::End);
+    cursor.insertText(text);
+    m_runOutput->setTextCursor(cursor);
+    m_runOutput->ensureCursorVisible();
+}
+
+void MainWindow::finishCodeRun(const QString& status)
+{
+    if (m_runStatus) m_runStatus->setText(status);
+    if (m_runStopButton) m_runStopButton->setEnabled(false);
+    if (m_runCloseButton) m_runCloseButton->setEnabled(true);
+    if (m_runOutput && m_runOutput->document()->isEmpty()) {
+        m_runOutput->setPlainText("No output.");
+    }
+    m_actRunCode->setEnabled(true);
+
+    if (m_runningProcess) {
+        m_runningProcess->deleteLater();
+        m_runningProcess = nullptr;
+    }
 }
 
 // ---------------------------------------------------------------------------
