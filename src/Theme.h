@@ -126,6 +126,55 @@ QTabBar::close-button {
     image: none; /* Can be stylized if needed */
 }
 
+/* Empty workspace */
+#WelcomeWorkspace {
+    background-color: #0B0D12;
+}
+#WelcomeCard {
+    background-color: #12151C;
+    border: 1px solid #262C38;
+    border-radius: 15px;
+}
+#WelcomeEyebrow, #WelcomeSectionTitle {
+    color: #8B7CFF;
+    font-size: 11px;
+    font-weight: 700;
+}
+#WelcomeTitle {
+    color: #F4F6FA;
+    font-size: 24px;
+    font-weight: 650;
+}
+#WelcomeSubtitle, #RecentEmptyLabel {
+    color: #8A95A8;
+    font-size: 13px;
+}
+#WelcomePrimaryButton {
+    background-color: #8B7CFF;
+    color: #FFFFFF;
+    border: 1px solid #8B7CFF;
+}
+#WelcomePrimaryButton:hover {
+    background-color: #9E91FF;
+}
+#RecentFilesList {
+    background-color: #0E1117;
+    color: #F4F6FA;
+    border: 1px solid #262C38;
+    border-radius: 8px;
+    padding: 4px;
+    outline: none;
+}
+#RecentFilesList::item {
+    color: #F4F6FA;
+    border-radius: 6px;
+    padding: 6px 10px;
+}
+#RecentFilesList::item:hover, #RecentFilesList::item:selected {
+    background-color: #1D222C;
+    color: #8B7CFF;
+}
+
 /* Editors */
 QPlainTextEdit, QTextEdit, QTableWidget {
     background-color: #12151C;

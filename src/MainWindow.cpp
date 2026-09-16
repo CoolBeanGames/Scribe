@@ -33,6 +33,9 @@
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QTimer>
+#include <QStackedWidget>
+#include <QListWidget>
+#include <QFrame>
 
 // ---------------------------------------------------------------------------
 // Construction
@@ -65,11 +68,14 @@ MainWindow::MainWindow(QWidget* parent)
     flowLayout->addWidget(m_formatToolbar);
     flowLayout->addWidget(m_sheetToolbar);
 
-    // Central widget: the tab widget
-    m_tabWidget = new TabWidget(centralWidget);
+    // Central workspace switches between a useful welcome surface and documents.
+    m_workspaceStack = new QStackedWidget(centralWidget);
+    m_tabWidget = new TabWidget(m_workspaceStack);
+    setupWelcomeWorkspace();
+    m_workspaceStack->addWidget(m_tabWidget);
     
     mainLayout->addWidget(toolbarContainer);
-    mainLayout->addWidget(m_tabWidget);
+    mainLayout->addWidget(m_workspaceStack);
     setCentralWidget(centralWidget);
 
     setupMenuBar();
@@ -94,6 +100,131 @@ MainWindow::MainWindow(QWidget* parent)
     updateWindowTitle(nullptr);
 
     restorePinnedFiles();
+    refreshRecentFiles();
+    updateWorkspaceState();
+}
+
+void MainWindow::setupWelcomeWorkspace()
+{
+    m_welcomeWorkspace = new QWidget(m_workspaceStack);
+    m_welcomeWorkspace->setObjectName("WelcomeWorkspace");
+    auto* outerLayout = new QVBoxLayout(m_welcomeWorkspace);
+    outerLayout->setContentsMargins(32, 32, 32, 32);
+    outerLayout->addStretch();
+
+    auto* card = new QFrame(m_welcomeWorkspace);
+    card->setObjectName("WelcomeCard");
+    card->setMaximumWidth(720);
+    auto* cardLayout = new QVBoxLayout(card);
+    cardLayout->setContentsMargins(36, 32, 36, 32);
+    cardLayout->setSpacing(14);
+
+    auto* eyebrow = new QLabel("SCRIBE WORKSPACE", card);
+    eyebrow->setObjectName("WelcomeEyebrow");
+    cardLayout->addWidget(eyebrow);
+
+    auto* title = new QLabel("What would you like to work on?", card);
+    title->setObjectName("WelcomeTitle");
+    cardLayout->addWidget(title);
+
+    auto* subtitle = new QLabel("Create a document or continue from a recent file.", card);
+    subtitle->setObjectName("WelcomeSubtitle");
+    cardLayout->addWidget(subtitle);
+
+    auto* actionLayout = new QHBoxLayout();
+    actionLayout->setSpacing(10);
+    auto* newButton = new QPushButton("New Text Document", card);
+    newButton->setObjectName("WelcomePrimaryButton");
+    newButton->setDefault(true);
+    auto* openButton = new QPushButton("Open File…", card);
+    actionLayout->addWidget(newButton);
+    actionLayout->addWidget(openButton);
+    actionLayout->addStretch();
+    cardLayout->addLayout(actionLayout);
+
+    auto* recentTitle = new QLabel("RECENT FILES", card);
+    recentTitle->setObjectName("WelcomeSectionTitle");
+    cardLayout->addWidget(recentTitle);
+
+    m_recentFilesList = new QListWidget(card);
+    m_recentFilesList->setObjectName("RecentFilesList");
+    m_recentFilesList->setAlternatingRowColors(false);
+    m_recentFilesList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_recentFilesList->setMaximumHeight(230);
+    cardLayout->addWidget(m_recentFilesList);
+
+    m_recentEmptyLabel = new QLabel("Files you open will appear here.", card);
+    m_recentEmptyLabel->setObjectName("RecentEmptyLabel");
+    cardLayout->addWidget(m_recentEmptyLabel);
+
+    outerLayout->addWidget(card, 0, Qt::AlignHCenter);
+    outerLayout->addStretch();
+    m_workspaceStack->addWidget(m_welcomeWorkspace);
+
+    connect(newButton, &QPushButton::clicked, this, &MainWindow::newPlainText);
+    connect(openButton, &QPushButton::clicked, this, qOverload<>(&MainWindow::openFile));
+    connect(m_recentFilesList, &QListWidget::itemActivated, this, [this](QListWidgetItem* item) {
+        if (item) openFile(item->data(Qt::UserRole).toString());
+    });
+}
+
+void MainWindow::updateWorkspaceState()
+{
+    if (!m_workspaceStack || !m_welcomeWorkspace || !m_tabWidget) return;
+    m_workspaceStack->setCurrentWidget(m_tabWidget->count() == 0
+        ? m_welcomeWorkspace
+        : static_cast<QWidget*>(m_tabWidget));
+}
+
+void MainWindow::refreshRecentFiles()
+{
+    if (!m_recentFilesList) return;
+
+    QSettings settings;
+    const QStringList stored = settings.value("files/recent").toStringList();
+    QStringList validPaths;
+    QSet<QString> seen;
+    for (const QString& storedPath : stored) {
+        const QString path = QFileInfo(storedPath).absoluteFilePath();
+        const QString key = QDir::toNativeSeparators(path).toLower();
+        if (QFileInfo::exists(path) && !seen.contains(key)) {
+            seen.insert(key);
+            validPaths.append(path);
+            if (validPaths.size() == 8) break;
+        }
+    }
+
+    if (validPaths != stored) {
+        settings.setValue("files/recent", validPaths);
+    }
+
+    m_recentFilesList->clear();
+    for (const QString& path : validPaths) {
+        QFileInfo info(path);
+        auto* item = new QListWidgetItem(QString("%1\n%2").arg(info.fileName(), info.absolutePath()),
+                                         m_recentFilesList);
+        item->setData(Qt::UserRole, path);
+        item->setToolTip(path);
+        item->setSizeHint(QSize(item->sizeHint().width(), 48));
+    }
+    m_recentFilesList->setVisible(!validPaths.isEmpty());
+    m_recentEmptyLabel->setVisible(validPaths.isEmpty());
+}
+
+void MainWindow::addRecentFile(const QString& path)
+{
+    if (path.isEmpty()) return;
+
+    const QString absolutePath = QFileInfo(path).absoluteFilePath();
+    QSettings settings;
+    QStringList paths = settings.value("files/recent").toStringList();
+    paths.removeIf([&absolutePath](const QString& existing) {
+        return QFileInfo(existing).absoluteFilePath().compare(absolutePath, Qt::CaseInsensitive) == 0;
+    });
+    paths.prepend(absolutePath);
+    while (paths.size() > 8) paths.removeLast();
+    settings.setValue("files/recent", paths);
+    refreshRecentFiles();
 }
 
 // ---------------------------------------------------------------------------
@@ -689,6 +820,7 @@ void MainWindow::openFile(const QString& path)
         if (openEditor && QFileInfo(openEditor->filePath()).absoluteFilePath()
                               .compare(requestedPath, Qt::CaseInsensitive) == 0) {
             m_tabWidget->setCurrentIndex(i);
+            addRecentFile(requestedPath);
             return;
         }
     }
@@ -719,6 +851,7 @@ void MainWindow::openFile(const QString& path)
     }
 
     m_tabWidget->addEditor(editor);
+    addRecentFile(path);
     updateWindowTitle(editor);
 }
 
@@ -790,6 +923,7 @@ bool MainWindow::saveCurrentFileAs()
     if (path.isEmpty()) return false;
 
     if (editor->saveFileAs(path)) {
+        addRecentFile(path);
         m_tabWidget->updateTabLabel(editor);
         updateWindowTitle(editor);
         if (m_tabWidget->isEditorPinned(editor)) savePinnedFiles();
@@ -1381,6 +1515,7 @@ SpreadsheetEditor* MainWindow::currentSheetEditor() const
 // ---------------------------------------------------------------------------
 void MainWindow::onEditorChanged(EditorBase* editor)
 {
+    updateWorkspaceState();
     updateToolbarsForEditor(editor);
     updateWindowTitle(editor);
     updateStatusBar(editor);

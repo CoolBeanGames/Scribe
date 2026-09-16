@@ -16,9 +16,11 @@
 #include "CodeEditor.h"
 
 class QDialog;
+class QListWidget;
 class QPlainTextEdit;
 class QProcess;
 class QPushButton;
+class QStackedWidget;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -38,6 +40,10 @@ private:
     QToolBar*     m_formatToolbar = nullptr;   // rich text formatting toolbar
     QToolBar*     m_sheetToolbar  = nullptr;   // spreadsheet toolbar
     QStatusBar*   m_statusBar     = nullptr;
+    QStackedWidget* m_workspaceStack = nullptr;
+    QWidget*      m_welcomeWorkspace = nullptr;
+    QListWidget*  m_recentFilesList = nullptr;
+    QLabel*       m_recentEmptyLabel = nullptr;
 
     // Menu actions
     QAction* m_actNewTxt = nullptr;
@@ -110,6 +116,10 @@ private:
     void setupSheetToolbar();
     void setupStatusBar();
     void setupShortcuts();
+    void setupWelcomeWorkspace();
+    void updateWorkspaceState();
+    void refreshRecentFiles();
+    void addRecentFile(const QString& path);
 
     // Editor management
     void newPlainText();
