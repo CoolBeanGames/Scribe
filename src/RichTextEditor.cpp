@@ -30,6 +30,16 @@ public:
         : QTextEdit(parent) {}
 
 protected:
+    void resizeEvent(QResizeEvent* event) override
+    {
+        QTextEdit::resizeEvent(event);
+        const qreal responsiveWidth = qBound<qreal>(320.0, viewport()->width(), 816.0);
+        const QSizeF currentPageSize = document()->pageSize();
+        if (!qFuzzyCompare(currentPageSize.width(), responsiveWidth)) {
+            document()->setPageSize(QSizeF(responsiveWidth, 1056.0));
+        }
+    }
+
     void paintEvent(QPaintEvent* event) override
     {
         QTextEdit::paintEvent(event);
@@ -45,17 +55,19 @@ protected:
         int docH = (int)document()->size().height();
         int totalPages = qMax(1, qMax(document()->pageCount(), (int)std::ceil(docH / (double)pageH)));
 
-        for (int page = 1; page < totalPages; ++page) {
-            int pageY = page * pageH - scrollY;
-            if (pageY >= 0 && pageY <= viewH) {
-                p.setPen(QPen(QColor("#3A4252"), 1, Qt::DashLine));
-                p.drawLine(20, pageY, viewW - 20, pageY);
+        const int firstVisibleBoundary = qMax(1, (scrollY + pageH - 1) / pageH);
+        const int lastVisibleBoundary = qMin(totalPages - 1, (scrollY + viewH) / pageH);
+        p.setPen(QPen(QColor("#3A4252"), 1, Qt::DashLine));
+        p.setFont(QFont("Segoe UI", 8, QFont::DemiBold));
 
-                p.setFont(QFont("Segoe UI", 8, QFont::DemiBold));
-                p.setPen(QColor("#8A95A8"));
-                QString tag = QString("Page %1").arg(page + 1);
-                p.drawText(QRect(viewW - 90, pageY - 16, 70, 14), Qt::AlignRight | Qt::AlignVCenter, tag);
-            }
+        for (int page = firstVisibleBoundary; page <= lastVisibleBoundary; ++page) {
+            int pageY = page * pageH - scrollY;
+            p.setPen(QPen(QColor("#3A4252"), 1, Qt::DashLine));
+            p.drawLine(20, pageY, viewW - 20, pageY);
+
+            p.setPen(QColor("#8A95A8"));
+            QString tag = QString("Page %1").arg(page + 1);
+            p.drawText(QRect(viewW - 90, pageY - 16, 70, 14), Qt::AlignRight | Qt::AlignVCenter, tag);
         }
     }
 };
@@ -78,7 +90,9 @@ RichTextEditor::RichTextEditor(QWidget* parent)
     m_editor->setObjectName("RichTextPageEditor");
     m_editor->setReadOnly(false);
     m_editor->setAcceptRichText(true);
-    m_editor->setFixedWidth(816); // Standard Letter width at 96 DPI
+    m_editor->setMinimumWidth(320);
+    m_editor->setMaximumWidth(816); // Standard Letter width at 96 DPI
+    m_editor->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
     // Standard print page size: Letter (816 x 1056 px) at 96 DPI
     QSizeF pageSize(816, 1056);
@@ -99,7 +113,7 @@ RichTextEditor::RichTextEditor(QWidget* parent)
     auto* footerLayout = new QHBoxLayout(footerBar);
     footerLayout->setContentsMargins(16, 4, 16, 4);
     m_pageLabel = new QLabel("Page 1 of 1  •  Standard Letter (8.5\" × 11\")", footerBar);
-    m_pageLabel->setStyleSheet("color: #8A95A8; font-size: 11px; font-weight: 500;");
+    m_pageLabel->setObjectName("PageInfoLabel");
     footerLayout->addWidget(m_pageLabel);
     footerLayout->addStretch();
     mainLayout->addWidget(footerBar);

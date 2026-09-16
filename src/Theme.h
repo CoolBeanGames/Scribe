@@ -218,6 +218,11 @@ QPlainTextEdit, QTextEdit {
     background-color: #0E1117;
     border-top: 1px solid #1E232E;
 }
+#PageInfoLabel {
+    color: #8A95A8;
+    font-size: 11px;
+    font-weight: 500;
+}
 
 /* Table / Spreadsheet */
 QTableWidget {
