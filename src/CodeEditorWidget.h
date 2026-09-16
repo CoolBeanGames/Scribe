@@ -6,6 +6,8 @@
 #include <QSyntaxHighlighter>
 
 class QCompleter;
+class QStringListModel;
+class QTimer;
 
 enum class CodeLanguage {
     Python,
@@ -48,6 +50,8 @@ private:
     QWidget *lineNumberArea = nullptr;
     QSyntaxHighlighter *m_highlighter = nullptr;
     QCompleter *m_completer = nullptr;
+    QStringListModel *m_completionModel = nullptr;
+    QTimer *m_completionTimer = nullptr;
     CodeLanguage m_language = CodeLanguage::Python;
 };
 

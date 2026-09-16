@@ -16,6 +16,7 @@
 #include <QScrollBar>
 #include <QSet>
 #include <QRegularExpression>
+#include <QTimer>
 
 CodeEditorWidget::CodeEditorWidget(QWidget *parent) : QPlainTextEdit(parent) {
     lineNumberArea = new LineNumberArea(this);
@@ -48,14 +49,24 @@ CodeEditorWidget::CodeEditorWidget(QWidget *parent) : QPlainTextEdit(parent) {
 
     // Setup autocomplete
     auto* comp = new QCompleter(this);
+    m_completionModel = new QStringListModel(comp);
+    comp->setModel(m_completionModel);
     comp->setModelSorting(QCompleter::CaseInsensitivelySortedModel);
     comp->setCaseSensitivity(Qt::CaseInsensitive);
     comp->setWrapAround(false);
     setCompleter(comp);
 
+    m_completionTimer = new QTimer(this);
+    m_completionTimer->setSingleShot(true);
+    m_completionTimer->setInterval(250);
+    connect(m_completionTimer, &QTimer::timeout,
+            this, &CodeEditorWidget::updateCompleterWords);
+
     setLanguage(CodeLanguage::Python);
 
-    connect(this, &QPlainTextEdit::textChanged, this, &CodeEditorWidget::updateCompleterWords);
+    connect(this, &QPlainTextEdit::textChanged, this, [this]() {
+        m_completionTimer->start();
+    });
     updateCompleterWords();
 }
 
@@ -90,7 +101,7 @@ void CodeEditorWidget::setLanguage(CodeLanguage lang) {
         break;
     }
 
-    updateCompleterWords();
+    if (m_completionTimer) m_completionTimer->start();
 }
 
 int CodeEditorWidget::lineNumberAreaWidth() {
@@ -450,34 +461,55 @@ void CodeEditorWidget::updateCompleterWords()
         wordSet = QSet<QString>(pythonKeywords.begin(), pythonKeywords.end());
     }
 
-    // Extract all identifier words and quoted keys from current document
-    QString docText = toPlainText();
-    QRegularExpression wordRegex(R"(\b[A-Za-z_][A-Za-z0-9_]*\b)");
+    // Bound dynamic indexing for large documents. A cursor-centered sample keeps
+    // nearby project vocabulary useful without copying and scanning multi-MB files.
+    constexpr int maxIndexedCharacters = 512 * 1024;
+    QString docText;
+    if (document()->characterCount() <= maxIndexedCharacters) {
+        docText = toPlainText();
+    } else {
+        const int characterCount = document()->characterCount() - 1;
+        const int halfWindow = maxIndexedCharacters / 2;
+        const int start = qBound(0, textCursor().position() - halfWindow,
+                                 characterCount - maxIndexedCharacters);
+        const int end = start + maxIndexedCharacters;
+        QTextCursor sampleCursor(document());
+        sampleCursor.setPosition(start);
+        sampleCursor.setPosition(end, QTextCursor::KeepAnchor);
+        docText = sampleCursor.selectedText();
+        docText.replace(QChar::ParagraphSeparator, '\n');
+    }
+
+    static const QRegularExpression wordRegex(R"(\b[A-Za-z_][A-Za-z0-9_]*\b)");
     QRegularExpressionMatchIterator it = wordRegex.globalMatch(docText);
-    while (it.hasNext()) {
+    constexpr int maxDocumentWords = 5000;
+    int addedDocumentWords = 0;
+    while (it.hasNext() && addedDocumentWords < maxDocumentWords) {
         QRegularExpressionMatch m = it.next();
+        const int oldSize = wordSet.size();
         wordSet.insert(m.captured(0));
+        if (wordSet.size() != oldSize) ++addedDocumentWords;
     }
 
     if (m_language == CodeLanguage::Json) {
-        QRegularExpression keyRegex("\"([A-Za-z0-9_.-]+)\"\\s*:");
+        static const QRegularExpression keyRegex("\"([A-Za-z0-9_.-]+)\"\\s*:");
         QRegularExpressionMatchIterator itKey = keyRegex.globalMatch(docText);
         while (itKey.hasNext()) {
             wordSet.insert(itKey.next().captured(1));
         }
     } else if (m_language == CodeLanguage::Css) {
-        QRegularExpression cssPropRegex(R"([A-Za-z_-]+(?=\s*:))");
+        static const QRegularExpression cssPropRegex(R"([A-Za-z_-]+(?=\s*:))");
         QRegularExpressionMatchIterator itProp = cssPropRegex.globalMatch(docText);
         while (itProp.hasNext()) {
             wordSet.insert(itProp.next().captured(0));
         }
     } else if (m_language == CodeLanguage::Xml) {
-        QRegularExpression tagRegex(R"(</?([a-zA-Z0-9_:\.-]+))");
+        static const QRegularExpression tagRegex(R"(</?([a-zA-Z0-9_:\.-]+))");
         QRegularExpressionMatchIterator itTag = tagRegex.globalMatch(docText);
         while (itTag.hasNext()) {
             wordSet.insert(itTag.next().captured(1));
         }
-        QRegularExpression attrRegex(R"(\b([a-zA-Z0-9_:\.-]+)(?=\s*=))");
+        static const QRegularExpression attrRegex(R"(\b([a-zA-Z0-9_:\.-]+)(?=\s*=))");
         QRegularExpressionMatchIterator itAttr = attrRegex.globalMatch(docText);
         while (itAttr.hasNext()) {
             wordSet.insert(itAttr.next().captured(1));
@@ -487,13 +519,7 @@ void CodeEditorWidget::updateCompleterWords()
     QStringList wordList = wordSet.values();
     wordList.sort(Qt::CaseInsensitive);
 
-    auto* model = qobject_cast<QStringListModel*>(m_completer->model());
-    if (!model) {
-        model = new QStringListModel(wordList, m_completer);
-        m_completer->setModel(model);
-    } else {
-        model->setStringList(wordList);
-    }
+    if (m_completionModel) m_completionModel->setStringList(wordList);
 }
 
 
